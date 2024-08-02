@@ -13,3 +13,8 @@ export interface Pagination {
   limit: number;
   offset: number;
 }
+
+export interface JoiValidationErrors {
+  hasError: boolean;
+  errors: Record<string, string>;
+}

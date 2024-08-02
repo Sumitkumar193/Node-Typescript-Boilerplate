@@ -1,12 +1,21 @@
 import { Request, Response } from 'express';
 import ApiException from '../errors/ApiException';
 import { IUser, IUserRoleEnum } from '../interfaces/UserInterface';
+import { createUserValidation } from '../validations/UserValidation';
+import validate from '../services/ValidationService';
 
 const users: IUser[] = [];
 
 export async function createUser(req: Request, res: Response) {
   try {
     const { email, password } = req.body;
+
+    const { hasError, errors } = validate(createUserValidation, req.body);
+
+    if (hasError) {
+      throw new ApiException('Validation error', 422, errors);
+    }
+
     const checkUserExists = users.find((user) => user.email === email);
 
     if (checkUserExists) {
