@@ -1,0 +1,25 @@
+{
+	"parser": "@typescript-eslint/parser",
+	"extends": ["airbnb-base", "plugin:@typescript-eslint/recommended", "prettier"],
+	"rules": {
+		"no-console": "off",
+		"no-underscore-dangle": "off",
+		"no-shadow": "off",
+		"@typescript-eslint/no-shadow": "warn",
+		"import/extensions": [
+			"error",
+			"ignorePackages",
+			{
+				"ts": "never"
+			}
+		],
+		"object-curly-newline": "off"
+	},
+	"settings": {
+		"import/resolver": {
+			"node": {
+				"extensions": [".js", ".ts"]
+			}
+		}
+	}
+}
