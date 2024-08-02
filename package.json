@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.ts",
-    "build": "rimraf dist && mkdir -p dist && tsc",
+    "build": "rm -rf dist && mkdir -p dist && tsc",
     "start": "nodemon dist/index.js",
     "lint": "prettier --write 'src/**/*.{ts,tsx}' && eslint 'src/**/*.{ts,tsx}'"
   },
