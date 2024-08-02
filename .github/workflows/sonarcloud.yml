@@ -65,3 +65,17 @@ jobs:
             #-Dsonar.verbose= # optional, default is false
           # When you need the analysis to take place in a directory other than the one from which it was launched, default is .
           projectBaseDir: .
+  Build:
+      needs: Analysis
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v2
+        - name: Setup Node.js
+          uses: actions/setup-node@v2
+          with:
+            node-version: '20'
+        - name: Install dependencies
+          run: npm install
+        - name: Build
+          run: npm run build
