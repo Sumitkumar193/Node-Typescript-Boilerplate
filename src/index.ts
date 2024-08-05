@@ -1,4 +1,5 @@
 import express, { ErrorRequestHandler } from 'express';
+import RateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import logger from 'morgan';
 import helmet from 'helmet';
@@ -12,6 +13,12 @@ app.use(logger('dev'));
 app.use(helmet());
 app.use(express.json());
 
+const limit = RateLimit({
+  windowMs: 60 * 1000,
+  max: 15,
+});
+
+app.use('/api/', limit);
 app.use('/api/users', UserRoutes);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
