@@ -24,7 +24,7 @@ This is a boilerplate for building a Node.js application with TypeScript. It inc
 1. Clone the repository:
 
    ```sh
-   git clone https://github.com/your-username/node-typescript-boilerplate.git
+   git clone https://github.com/sumitkumar193/node-typescript-boilerplate.git
    cd node-typescript-boilerplate
    ```
 
@@ -35,6 +35,20 @@ This is a boilerplate for building a Node.js application with TypeScript. It inc
    # or
    yarn install
    ```
+
+3. Set up the environment variables:
+   ```sh
+   cp .env.example .env
+   ```
+
+   Update the `.env` file with your environment variables.
+
+4. Set up the database and generate the Prisma client:
+    ```sh
+    npx prisma migrate dev # For development
+    npx prisma migrate deploy # For production 
+    npx prisma db push
+    ```
 
 ### Running the Project
 
@@ -85,6 +99,7 @@ This is a boilerplate for building a Node.js application with TypeScript. It inc
 │   ├── interfaces       # Interfaces of various types
 │   ├── validations      # Input validations for request body types
 ├── dist                 # Compiled output
+├── prisma               # Prisma configuration and Schema
 ├── .eslintrc.js         # ESLint configuration
 ├── .prettierrc          # Prettier configuration
 ├── tsconfig.json        # TypeScript configuration
