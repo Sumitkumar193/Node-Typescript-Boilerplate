@@ -1,10 +1,12 @@
-export enum IUserRoleEnum {
-  Admin = 'Admin',
-  Staff = 'Staff',
-}
+import { Role } from '@prisma/client';
 
 export interface IUser {
+  id: string;
+  name?: string;
   email: string;
   password: string;
-  role: IUserRoleEnum;
+  role: Role;
+  disabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }

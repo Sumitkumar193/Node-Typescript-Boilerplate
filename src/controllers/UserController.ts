@@ -1,31 +1,31 @@
 import { Request, Response } from 'express';
 import ApiException from '../errors/ApiException';
-import { IUser, IUserRoleEnum } from '../interfaces/UserInterface';
-import { createUserValidation } from '../validations/UserValidation';
-import validate from '../services/ValidationService';
+import prisma from '../database/Prisma';
 
-const users: IUser[] = [];
-
-export async function createUser(req: Request, res: Response) {
+export async function getUsers(req: Request, res: Response) {
   try {
-    const { email, password } = req.body;
+    const { page, limit, offset } = req.body.pagination;
 
-    const { hasError, errors } = validate(createUserValidation, req.body);
+    const usersCount = await prisma.user.count();
 
-    if (hasError) {
-      throw new ApiException('Validation error', 422, errors);
-    }
+    const usersPaginated = await prisma.user.findMany({
+      skip: page ?? 0 * offset,
+      take: limit,
+    });
 
-    const checkUserExists = users.find((user) => user.email === email);
-
-    if (checkUserExists) {
-      throw new ApiException('User already exists', 400);
-    }
-
-    users.push({ email, password, role: IUserRoleEnum.Staff });
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: 'User created',
+      data: {
+        users: usersPaginated,
+        meta: {
+          page,
+          limit,
+          total: {
+            items: usersCount,
+            pages: Math.ceil(usersCount / limit),
+          },
+        },
+      },
     });
   } catch (error) {
     if (error instanceof ApiException) {
@@ -38,23 +38,55 @@ export async function createUser(req: Request, res: Response) {
   }
 }
 
-export async function getUsers(req: Request, res: Response) {
+export async function getUser(req: Request, res: Response) {
   try {
-    const { page, limit, offset } = req.body.pagination;
-    const usersPaginated = users.slice(offset, offset + limit);
+    const { id } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id,
+      },
+    });
+
+    if (!user) {
+      throw new ApiException('User not found', 404);
+    }
 
     return res.status(200).json({
       success: true,
       data: {
-        users: usersPaginated,
-        meta: {
-          page,
-          limit,
-          total: {
-            items: users.length,
-            pages: Math.ceil(users.length / limit),
-          },
-        },
+        user,
+      },
+    });
+  } catch (error) {
+    if (error instanceof ApiException) {
+      return res.status(error.status).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    throw error;
+  }
+}
+
+export async function disableUser(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    const user = await prisma.user.update({
+      where: {
+        id,
+      },
+      data: {
+        disabled: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'User disabled',
+      data: {
+        user,
       },
     });
   } catch (error) {

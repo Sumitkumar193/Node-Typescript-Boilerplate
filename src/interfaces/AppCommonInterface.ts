@@ -1,17 +1,22 @@
-import { IUserRoleEnum } from './UserInterface';
-
 export interface JwtToken {
   id: string;
+  name: string | null;
   email: string;
-  role: IUserRoleEnum.Admin | IUserRoleEnum.Staff;
-  tokenId: string;
-  expiresAt: number;
+  expiresAt: Date;
 }
 
-export interface Pagination {
+export interface PaginationMeta {
   page: number;
   limit: number;
-  offset: number;
+  total: {
+    items: number;
+    pages: number;
+  };
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
 }
 
 export interface JoiValidationErrors {

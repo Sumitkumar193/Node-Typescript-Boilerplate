@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import logger from 'morgan';
 import helmet from 'helmet';
 import UserRoutes from './routes/UserRoutes';
+import AuthRoutes from './routes/AuthRoutes';
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ const limit = RateLimit({
 
 app.use('/api/', limit);
 app.use('/api/users', UserRoutes);
+app.use('/api/auth', AuthRoutes);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const fallback: ErrorRequestHandler = (err, _req, res, _next) => {

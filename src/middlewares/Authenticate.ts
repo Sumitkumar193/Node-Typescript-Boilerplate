@@ -3,10 +3,11 @@ import jwt from 'jsonwebtoken';
 import ApiException from '../errors/ApiException';
 import AppException from '../errors/AppException';
 import { JwtToken } from '../interfaces/AppCommonInterface';
+import prisma from '../database/Prisma';
 
 const UNAUTHORIZED_MESSAGE = 'Unauthorized';
 
-export default function Authenticate(
+export default async function Authenticate(
   req: Request,
   res: Response,
   next: NextFunction,
@@ -30,7 +31,24 @@ export default function Authenticate(
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
 
+    const tokenRecord = await prisma.userToken.findUnique({
+      where: { id: token },
+    });
+
+    if (!tokenRecord || tokenRecord.disabled) {
+      throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: tokenRecord.userId, disabled: false },
+    });
+
+    if (!user) {
+      throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
+    }
+
     req.body.token = decoded;
+    req.body.user = user;
 
     next();
   } catch (error) {
