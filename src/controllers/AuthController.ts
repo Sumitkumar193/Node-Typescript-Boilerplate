@@ -1,11 +1,14 @@
 import { Request, Response } from 'express';
+import { User, Role } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import ApiException from '../errors/ApiException';
 import prisma from '../database/Prisma';
-import { User, Role } from '@prisma/client';
-import { createUserValidation, loginValidation } from '../validations/UserValidation';
+import {
+  createUserValidation,
+  loginValidation,
+} from '../validations/UserValidation';
 import validate from '../services/ValidationService';
 import TokenService from '../services/TokenService';
-import bcrypt from 'bcryptjs';
 
 export async function createUser(req: Request, res: Response) {
   try {
@@ -19,22 +22,21 @@ export async function createUser(req: Request, res: Response) {
 
     const checkUserExists = await prisma.user.findUnique({ where: { email } });
 
-    if (!!checkUserExists) {
+    if (!checkUserExists) {
       throw new ApiException('User already exists', 400);
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user: User = await prisma.user.create(
-      { 
-        data: {
-          name: name,
-          email: email,
-          password: hashedPassword,
-          roles: Role.USER
-        }
+    const user: User = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        roles: Role.USER,
+      },
     });
-    
+
     const token = await TokenService.generateUserToken(user);
 
     return res.status(201).json({
@@ -43,7 +45,7 @@ export async function createUser(req: Request, res: Response) {
       data: {
         user,
         token,
-      }
+      },
     });
   } catch (error) {
     if (error instanceof ApiException) {
@@ -69,7 +71,9 @@ export async function loginUser(req: Request, res: Response) {
       throw new ApiException('Validation error', 422, errors);
     }
 
-    const user: User | null = await prisma.user.findUnique({where: { email } });
+    const user: User | null = await prisma.user.findUnique({
+      where: { email },
+    });
 
     if (!user) {
       throw new ApiException('User not found', 404);
@@ -87,7 +91,7 @@ export async function loginUser(req: Request, res: Response) {
       success: true,
       message: 'User logged in',
       data: {
-        user : {
+        user: {
           name: user.name,
           email: user.email,
         },

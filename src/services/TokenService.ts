@@ -1,7 +1,7 @@
 import { User } from '@prisma/client';
-import prisma from '../database/Prisma';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
+import prisma from '../database/Prisma';
 import { JwtToken } from '../interfaces/AppCommonInterface';
 
 class TokenService {
@@ -21,7 +21,7 @@ class TokenService {
       id: userToken.id,
       name: user.name,
       email: user.email,
-      expiresAt: expiresAt,
+      expiresAt,
     };
 
     const token = jwt.sign(tokenData, process.env.JWT_SECRET as string, {
@@ -41,7 +41,7 @@ class TokenService {
         disabled: true,
       },
     });
-  }
+  };
 
   static logoutFromAllDevices = async (user: User): Promise<void> => {
     await prisma.userToken.updateMany({
@@ -53,7 +53,7 @@ class TokenService {
         disabled: true,
       },
     });
-  }
+  };
 }
 
 export default TokenService;

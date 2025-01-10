@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import Authenticate from '../middlewares/Authenticate';
-import { loginUser, createUser, logoutUser, logoutFromAllDevices } from '../controllers/AuthController';
+import {
+  loginUser,
+  createUser,
+  logoutUser,
+  logoutFromAllDevices,
+} from '../controllers/AuthController';
 
 const AuthRoutes = Router();
 
