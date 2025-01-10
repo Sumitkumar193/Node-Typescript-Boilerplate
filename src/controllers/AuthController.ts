@@ -99,7 +99,7 @@ export async function loginUser(req: Request, res: Response) {
       httpOnly: true,
       secure: (process.env.NODE_ENV as string) === 'production',
       sameSite: 'strict',
-      maxAge: 1000 * 60 * 60 * 24
+      maxAge: 1000 * 60 * 60 * 24,
     });
 
     return res.status(200).json({
