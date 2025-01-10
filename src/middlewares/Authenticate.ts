@@ -13,7 +13,7 @@ export default async function Authenticate(
   next: NextFunction,
 ) {
   try {
-    const accessToken = req.headers.authorization;
+    const { accessToken } = req.cookies;
     if (!accessToken) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }

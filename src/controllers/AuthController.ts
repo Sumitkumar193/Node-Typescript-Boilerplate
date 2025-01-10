@@ -39,11 +39,21 @@ export async function createUser(req: Request, res: Response) {
 
     const token = await TokenService.generateUserToken(user);
 
+    res.cookie('accessToken', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 1000 * 60 * 60 * 24,
+    });
+
     return res.status(201).json({
       success: true,
       message: 'User created',
       data: {
-        user,
+        user: {
+          name: user.name,
+          email: user.email,
+        },
         token,
       },
     });
@@ -65,8 +75,6 @@ export async function loginUser(req: Request, res: Response) {
 
     const { hasError, errors } = validate(loginValidation, { email, password });
 
-    console.log(errors);
-
     if (hasError) {
       throw new ApiException('Validation error', 422, errors);
     }
@@ -86,6 +94,13 @@ export async function loginUser(req: Request, res: Response) {
     }
 
     const token = await TokenService.generateUserToken(user);
+
+    res.cookie('accessToken', token, {
+      httpOnly: true,
+      secure: (process.env.NODE_ENV as string) === 'production',
+      sameSite: 'strict',
+      maxAge: 1000 * 60 * 60 * 24
+    });
 
     return res.status(200).json({
       success: true,
@@ -116,6 +131,8 @@ export async function logoutUser(req: Request, res: Response) {
 
     await TokenService.logoutUser(token);
 
+    res.clearCookie('accessToken');
+
     return res.status(200).json({
       success: true,
       message: 'User logged out',
@@ -136,6 +153,8 @@ export async function logoutFromAllDevices(req: Request, res: Response) {
     const { user } = req.body;
 
     await TokenService.logoutFromAllDevices(user);
+
+    res.clearCookie('accessToken');
 
     return res.status(200).json({
       success: true,
