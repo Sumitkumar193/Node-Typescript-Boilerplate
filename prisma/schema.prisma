@@ -20,21 +20,23 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(cuid()) @map("_id")
-  email     String   @unique
+  id        String      @id @default(cuid()) @map("_id")
+  email     String      @unique
   name      String?
   password  String
   roles     Role
-  disabled  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  disabled  Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  tokens    UserToken[]
 }
 
 model UserToken {
   id        String   @id @default(cuid()) @map("_id")
   userId    String
-  tokenId   String
+  token     String
   disabled  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
 }
