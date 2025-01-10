@@ -12,7 +12,7 @@ class TokenService {
     const userToken = await prisma.userToken.create({
       data: {
         userId: user.id,
-        tokenId: crypto.randomUUID(),
+        token: crypto.randomUUID(),
         disabled: false,
       },
     });
