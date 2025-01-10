@@ -39,8 +39,16 @@ export default async function Authenticate(
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: tokenRecord.userId, disabled: false },
+    });
+
+    if (!user) {
+      throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
+    }
+
     req.body.token = decoded;
-    req.body.user = tokenRecord;
+    req.body.user = user;
 
     next();
   } catch (error) {
