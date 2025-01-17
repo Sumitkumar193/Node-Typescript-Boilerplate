@@ -1,5 +1,5 @@
 import { Prisma, User } from '@prisma/client';
-import { JwtToken, Pagination } from '../src/interfaces/Common';
+import { JwtToken, Pagination } from '../src/interfaces/AppCommonInterface';
 
 declare namespace Express {
     export interface Request {
