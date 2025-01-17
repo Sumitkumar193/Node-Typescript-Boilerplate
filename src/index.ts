@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import dotenv from 'dotenv';
 import logger from 'morgan';
 import helmet from 'helmet';
-import Socket from './socket/Socket';
+import Socket from './services/Socket';
 import UserRoutes from './routes/UserRoutes';
 import AuthRoutes from './routes/AuthRoutes';
 
