@@ -60,9 +60,12 @@ class TokenService {
       if (!token) {
         return null;
       }
-  
-      const data = jwt.verify(token, process.env.JWT_SECRET as string) as JwtToken;
-      
+
+      const data = jwt.verify(
+        token,
+        process.env.JWT_SECRET as string,
+      ) as JwtToken;
+
       const userWithToken = await prisma.userToken.findUnique({
         where: {
           id: data.id,
@@ -72,13 +75,13 @@ class TokenService {
           user: true,
         },
       });
-  
+
       return userWithToken?.user ?? null;
     } catch (error) {
       console.error('Error verifying token:', error);
       return null;
     }
-  }
+  };
 }
 
 export default TokenService;
