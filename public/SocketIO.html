@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.io Example</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+</head>
+<body>
+    <div>
+        <h2>Socket.io Test</h2>
+        <div>Connection Status: <span id="status">Disconnected</span></div>
+        <div>User ID: <span id="userId">Not identified</span></div>
+        <div>
+            <h3>Messages:</h3>
+            <div id="messages"></div>
+        </div>
+    </div>
+
+    <script>
+        // Connect to your server
+        const socket = io('http://localhost:4000', {
+            withCredentials: true
+        });
+
+        // Connection status handling
+        socket.on('connect', () => {
+            document.getElementById('status').textContent = 'Connected';
+            console.log('Connected with socket ID:', socket.id);
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('status').textContent = 'Disconnected';
+        });
+
+        // Listen for identified events
+        socket.on('identified', (userId) => {
+            document.getElementById('userId').textContent = userId;
+            addMessage(`Identified as user: ${userId}`);
+        });
+
+        // Listen for custom events
+        socket.on('custom-event', (data) => {
+            addMessage(`Received custom event: ${JSON.stringify(data)}`);
+        });
+
+        // Helper function to add messages to the UI
+        function addMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            const messageElement = document.createElement('div');
+            messageElement.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            messagesDiv.appendChild(messageElement);
+        }
+    </script>
+</body>
+</html>

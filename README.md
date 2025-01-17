@@ -86,6 +86,25 @@ This is a boilerplate for building a Node.js application with TypeScript. It inc
   yarn lint
   ```
 
+### Socket.io Server Implementation
+- Socket.io server is implemented in the project. You can use it by importing Socket from `src/socket/Socket.ts` file.
+- You can also use the socket instance to broadcast events to all connected clients.
+- If user is identified, you can use the socket instance to emit events to specific user.
+  #### Example of Broadcasting event to all connected clients
+  ```typescript
+  import Socket from '/src/socket/Socket';
+
+  Socket.emit('event-name', { data: 'data' });
+  ```
+
+  #### Example of Emitting event to specific user
+  ```typescript
+  import { Socket } from '/src/socket/Socket';
+
+  const { user } = req.body;
+  Socket.emitToUser(user.id, 'event-name', { data: 'data' });
+  ```
+
 ## Project Structure
 
 ```
