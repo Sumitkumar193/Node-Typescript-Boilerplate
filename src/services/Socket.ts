@@ -1,7 +1,7 @@
 import { Server, Socket as ISocket } from 'socket.io';
 import { Server as IServer } from 'node:http';
 import AppException from '../errors/AppException';
-import TokenService from '../services/TokenService';
+import TokenService from './TokenService';
 
 /**
  * @class Socket
