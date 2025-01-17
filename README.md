@@ -99,7 +99,7 @@ This is a boilerplate for building a Node.js application with TypeScript. It inc
 
   #### Example of Emitting event to specific user
   ```typescript
-  import { Socket } from '/src/socket/Socket';
+  import Socket from '/src/socket/Socket';
 
   const { user } = req.body;
   Socket.emitToUser(user.id, 'event-name', { data: 'data' });
