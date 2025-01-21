@@ -1,4 +1,5 @@
 import express, { ErrorRequestHandler } from 'express';
+import cors, { CorsOptions } from 'cors';
 import RateLimit from 'express-rate-limit';
 import { createServer } from 'node:http';
 import dotenv from 'dotenv';
@@ -12,7 +13,15 @@ dotenv.config();
 
 const app = express();
 
+const corsOptions: CorsOptions = {
+  origin: process.env.FRONTEND_URL ?? '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
+
 app.use(logger('dev'));
+app.use(cors(corsOptions));
 app.use(helmet());
 app.use(express.json());
 

@@ -1,5 +1,6 @@
 import { Server, Socket as ISocket } from 'socket.io';
 import { Server as IServer } from 'node:http';
+import { User } from '@prisma/client';
 import AppException from '../errors/AppException';
 import TokenService from './TokenService';
 
@@ -31,7 +32,8 @@ class Socket {
   static init(server: IServer) {
     this.io = new Server(server, {
       cors: {
-        origin: '*',
+        origin: process.env.FRONTEND_URL ?? '*',
+        credentials: true,
       },
     });
 
@@ -39,13 +41,13 @@ class Socket {
       this.idSocketMap.set(socket.id, socket);
       socket.join('public');
 
-      const handleAuth = async () => {
+      const handleAuth = async (): Promise<User|null> => {
         const token = socket.handshake.headers.cookie?.split('accessToken=')[1];
         if (!token) return null;
 
         const user = await TokenService.getUserFromToken(token);
         if (user) {
-          this.addUserToRoom(user.id, socket.id);
+          this.addUserToRoom(user, socket.id);
           return user;
         }
         return null;
@@ -54,7 +56,7 @@ class Socket {
       socket.on('identify', async () => {
         const user = await handleAuth();
         if (user) {
-          this.io.to(user.id).emit('identified', 'User identified');
+          this.io.to(user.id).emit('identified', { name: user.name, email: user.email, role: user.roles });
         }
       });
 
@@ -87,8 +89,9 @@ class Socket {
     this.io.to(userId).emit(event, data);
   }
 
-  private static addUserToRoom(userId: string, socketId: string): void {
+  private static addUserToRoom(user: User, socketId: string): void {
     try {
+      const userId = user.id;
       const socket = this.idSocketMap.get(socketId);
       if (!socket) {
         throw new AppException('Socket not found', 404);
@@ -98,9 +101,7 @@ class Socket {
         this.userSocketIdMap.set(userId, new Set());
       }
       this.userSocketIdMap.get(userId)?.add(socketId);
-
-      this.io.to(userId).emit('identified', 'User identified');
-      console.log('User connected', userId);
+      this.io.to(user.id).emit('identified', { name: user.name, email: user.email, role: user.roles });
     } catch (error) {
       console.error(error);
     }
