@@ -41,7 +41,7 @@ const fallback: ErrorRequestHandler = (err, _req, res, _next) => {
 
 app.use(fallback);
 
-const PORT = process.env.APP_PORT ?? 3005;
+const PORT = process.env.PORT ?? 3005;
 
 const server = createServer(app);
 
