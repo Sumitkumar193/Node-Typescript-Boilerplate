@@ -1,8 +1,9 @@
 import { Server, Socket as ISocket } from 'socket.io';
 import { Server as IServer } from 'node:http';
-import { User } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import AppException from '../errors/AppException';
 import TokenService from './TokenService';
+import prisma from '../database/Prisma';
 
 /**
  * @class Socket
@@ -81,14 +82,60 @@ class Socket {
     });
   }
 
+  /**
+   * Emit event to all connected sockets
+   * @param {string} event - Event name
+   * @param {T} data - Event data
+   */
   static emit<T>(event: string, data: T) {
     this.io.to('public').emit(event, data);
   }
 
+  /**
+   * Emit event to specific user
+   * @param {string} userId - User id
+   * @param {string} event - Event name
+   * @param {T} data - Event data
+   */
   static emitToUser<T>(userId: string, event: string, data: T) {
     this.io.to(userId).emit(event, data);
   }
 
+  /**
+   * Emit event to all users with specific role
+   * @param {Role} role 
+   * @param {string} event 
+   * @param {T} data 
+   */
+  static async emitToRole<T>(role: Role, event: string, data: T) {
+    const userIds = await prisma.user.findMany({
+      where: {
+        roles: role,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    userIds.forEach((user) => {
+      this.io.to(user.id).emit(event, data);
+    });
+  }
+
+  /**
+   * Attach event to all connected sockets
+   * @param {string} event - Event name
+   * @param {(data: T) => void} callback - Event callback
+   */
+  static attachEvent<T>(event: string, callback: (data: T) => void) {
+    this.io.on(event, callback);
+  }
+
+  /**
+   * Add user to specific room
+   * @param {User} user - User data
+   * @param {string} socketId - Socket id
+   */
   private static addUserToRoom(user: User, socketId: string): void {
     try {
       const userId = user.id;

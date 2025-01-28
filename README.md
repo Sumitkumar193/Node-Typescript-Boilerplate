@@ -104,6 +104,13 @@ This is a boilerplate for building a Node.js application with TypeScript. It inc
   const { user } = req.body;
   Socket.emitToUser(user.id, 'event-name', { data: 'data' });
   ```
+  #### Example of Emitting event to specific roles
+  ```typescript
+  import Socket from '/src/socket/Socket';
+  import { Role } from '@prisma/client';
+
+  Socket.emitToRole(Role.USER, 'event-name', { data: 'data' });
+  ```
 
 ## Project Structure
 
