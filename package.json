@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.ts",
-    "build": "rm -rf dist && mkdir -p dist && tsc",
-    "start": "nodemon dist/index.js",
+    "build": "rimraf dist && mkdirp dist && tsc",
+    "start": "nodemon ./dist/index.js",
     "lint": "prettier --write \"src/**/*.{ts,tsx}\" && eslint \"src/**/*.{ts,tsx}\""
   },
   "keywords": [],
@@ -25,9 +25,11 @@
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
+    "mkdirp": "^3.0.1",
     "nodemon": "^3.1.4",
     "prettier": "^3.3.3",
     "prisma": "^6.2.0",
+    "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
   },
