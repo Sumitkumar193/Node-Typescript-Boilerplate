@@ -42,7 +42,7 @@ class Socket {
       this.idSocketMap.set(socket.id, socket);
       socket.join('public');
 
-      const handleAuth = async (): Promise<User|null> => {
+      const handleAuth = async (): Promise<User | null> => {
         const token = socket.handshake.headers.cookie?.split('accessToken=')[1];
         if (!token) return null;
 
@@ -57,7 +57,13 @@ class Socket {
       socket.on('identify', async () => {
         const user = await handleAuth();
         if (user) {
-          this.io.to(user.id).emit('identified', { name: user.name, email: user.email, role: user.roles });
+          this.io
+            .to(user.id)
+            .emit('identified', {
+              name: user.name,
+              email: user.email,
+              role: user.roles,
+            });
         }
       });
 
@@ -103,9 +109,9 @@ class Socket {
 
   /**
    * Emit event to all users with specific role
-   * @param {Role} role 
-   * @param {string} event 
-   * @param {T} data 
+   * @param {Role} role
+   * @param {string} event
+   * @param {T} data
    */
   static async emitToRole<T>(role: Role, event: string, data: T) {
     const userIds = await prisma.user.findMany({
@@ -115,7 +121,7 @@ class Socket {
       select: {
         id: true,
       },
-    })
+    });
 
     userIds.forEach((user) => {
       this.io.to(user.id).emit(event, data);
@@ -148,7 +154,13 @@ class Socket {
         this.userSocketIdMap.set(userId, new Set());
       }
       this.userSocketIdMap.get(userId)?.add(socketId);
-      this.io.to(user.id).emit('identified', { name: user.name, email: user.email, role: user.roles });
+      this.io
+        .to(user.id)
+        .emit('identified', {
+          name: user.name,
+          email: user.email,
+          role: user.roles,
+        });
     } catch (error) {
       console.error(error);
     }

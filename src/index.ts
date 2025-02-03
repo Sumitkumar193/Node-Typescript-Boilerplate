@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 import dotenv from 'dotenv';
 import logger from 'morgan';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import Socket from './services/Socket';
 import UserRoutes from './routes/UserRoutes';
 import AuthRoutes from './routes/AuthRoutes';
@@ -12,6 +13,8 @@ import AuthRoutes from './routes/AuthRoutes';
 dotenv.config();
 
 const app = express();
+
+app.use(cookieParser());
 
 const corsOptions: CorsOptions = {
   origin: process.env.FRONTEND_URL ?? '*',
