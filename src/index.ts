@@ -14,8 +14,6 @@ dotenv.config();
 
 const app = express();
 
-app.use(cookieParser());
-
 const corsOptions: CorsOptions = {
   origin: process.env.FRONTEND_URL ?? '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -25,6 +23,7 @@ const corsOptions: CorsOptions = {
 
 app.use(logger('dev'));
 app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use(helmet());
 app.use(express.json());
 

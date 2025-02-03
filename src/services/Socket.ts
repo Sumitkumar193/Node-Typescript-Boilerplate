@@ -57,13 +57,11 @@ class Socket {
       socket.on('identify', async () => {
         const user = await handleAuth();
         if (user) {
-          this.io
-            .to(user.id)
-            .emit('identified', {
-              name: user.name,
-              email: user.email,
-              role: user.roles,
-            });
+          this.io.to(user.id).emit('identified', {
+            name: user.name,
+            email: user.email,
+            role: user.roles,
+          });
         }
       });
 
@@ -154,13 +152,11 @@ class Socket {
         this.userSocketIdMap.set(userId, new Set());
       }
       this.userSocketIdMap.get(userId)?.add(socketId);
-      this.io
-        .to(user.id)
-        .emit('identified', {
-          name: user.name,
-          email: user.email,
-          role: user.roles,
-        });
+      this.io.to(user.id).emit('identified', {
+        name: user.name,
+        email: user.email,
+        role: user.roles,
+      });
     } catch (error) {
       console.error(error);
     }
