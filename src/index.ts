@@ -32,15 +32,14 @@ const limit = RateLimit({
   max: 15,
 });
 
-app.get('/api/keep-alive', AttachCsrf);
-
 app.use(cookieParser());
-app.use('/api/', limit, VerifyCsrf);
+app.use('/api', VerifyCsrf);
+app.use('/api', limit);
+app.get('/api/keep-alive', AttachCsrf);
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const fallback: ErrorRequestHandler = (err, _req, res, _next) => {
+const fallback: ErrorRequestHandler = (err, _req, res) => {
   const status = err.status || 500;
   const message =
     process.env.NODE_ENV === 'production'

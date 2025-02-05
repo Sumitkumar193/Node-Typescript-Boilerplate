@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { doubleCsrf } from 'csrf-csrf';
+import ApiException from '../errors/ApiException';
 
 const { generateToken, doubleCsrfProtection } = doubleCsrf({
   getSecret: () =>
@@ -38,12 +39,21 @@ export function VerifyCsrf(
   res: Response,
   next: NextFunction,
 ): void | Response {
-  if (req.method === 'GET') return next();
+  try {
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      return next();
+    }
+    const token = req.headers['x-csrf-token'] as string;
 
-  // Ensure the CSRF token is present in headers
-  const token = req.headers['x-csrf-token'] as string;
-  if (!token) {
-    return res.status(403).json({ message: 'CSRF token missing or invalid' });
+    if (!token) {
+      throw new ApiException('CSRF token missing or invalid', 403);
+    }
+
+    doubleCsrfProtection(req, res, next);
+  } catch (error) {
+    if (error instanceof ApiException) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    throw error;
   }
-  doubleCsrfProtection(req, res, next);
 }
