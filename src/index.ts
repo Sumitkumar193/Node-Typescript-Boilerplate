@@ -39,13 +39,9 @@ app.get('/api/keep-alive', AttachCsrf);
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
 
-const fallback: ErrorRequestHandler = (err, _req, res) => {
-  const status = err.status || 500;
-  const message =
-    process.env.NODE_ENV === 'production'
-      ? 'Internal server error'
-      : err.message;
-  res.status(status).json({ success: false, message });
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const fallback: ErrorRequestHandler = (err, _req, res, _next) => {
+  res.status(500).json({ success: false, message: err.message });
 };
 
 app.use(fallback);

@@ -31,7 +31,7 @@ export function AttachCsrf(
     });
   }
 
-  next();
+  res.status(200).json({ success: true, message: 'CSRF token attached' });
 }
 
 export function VerifyCsrf(
