@@ -7,6 +7,7 @@ import logger from 'morgan';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import Socket from './services/Socket';
+import { AttachCsrf, VerifyCsrf } from './middlewares/Csrf';
 import UserRoutes from './routes/UserRoutes';
 import AuthRoutes from './routes/AuthRoutes';
 
@@ -17,13 +18,12 @@ const app = express();
 const corsOptions: CorsOptions = {
   origin: process.env.FRONTEND_URL ?? '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-TOKEN'],
   credentials: true,
 };
 
 app.use(logger('dev'));
 app.use(cors(corsOptions));
-app.use(cookieParser());
 app.use(helmet());
 app.use(express.json());
 
@@ -32,13 +32,21 @@ const limit = RateLimit({
   max: 15,
 });
 
-app.use('/api/', limit);
+app.get('/api/keep-alive', AttachCsrf);
+
+app.use(cookieParser());
+app.use('/api/', limit, VerifyCsrf);
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const fallback: ErrorRequestHandler = (err, _req, res, _next) => {
-  res.status(500).json({ success: false, message: err.message });
+  const status = err.status || 500;
+  const message =
+    process.env.NODE_ENV === 'production'
+      ? 'Internal server error'
+      : err.message;
+  res.status(status).json({ success: false, message });
 };
 
 app.use(fallback);

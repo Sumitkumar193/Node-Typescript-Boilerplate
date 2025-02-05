@@ -22,7 +22,7 @@ export async function createUser(req: Request, res: Response) {
 
     const checkUserExists = await prisma.user.findUnique({ where: { email } });
 
-    if (!checkUserExists) {
+    if (checkUserExists) {
       throw new ApiException('User already exists', 400);
     }
 
