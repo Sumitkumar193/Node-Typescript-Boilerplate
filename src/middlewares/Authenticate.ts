@@ -13,12 +13,13 @@ export default async function Authenticate(
   next: NextFunction,
 ) {
   try {
-    const { accessToken } = req.cookies;
-    if (!accessToken) {
+    const token =
+      req.cookies?.accessToken ||
+      req.header('Authorization')?.replace('Bearer ', '');
+
+    if (!token) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
-
-    const token = accessToken.split(' ')[1];
 
     let decoded: JwtToken | null = null;
     try {

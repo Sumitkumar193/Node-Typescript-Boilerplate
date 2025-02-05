@@ -5,7 +5,9 @@ import { createServer } from 'node:http';
 import dotenv from 'dotenv';
 import logger from 'morgan';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import Socket from './services/Socket';
+import { AttachCsrf, VerifyCsrf } from './middlewares/Csrf';
 import UserRoutes from './routes/UserRoutes';
 import AuthRoutes from './routes/AuthRoutes';
 
@@ -16,7 +18,7 @@ const app = express();
 const corsOptions: CorsOptions = {
   origin: process.env.FRONTEND_URL ?? '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-TOKEN'],
   credentials: true,
 };
 
@@ -30,7 +32,10 @@ const limit = RateLimit({
   max: 15,
 });
 
-app.use('/api/', limit);
+app.use(cookieParser());
+app.use('/api', VerifyCsrf);
+app.use('/api', limit);
+app.get('/api/keep-alive', AttachCsrf);
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
 
