@@ -1,6 +1,6 @@
 import { Server, Socket as ISocket } from 'socket.io';
 import { Server as IServer } from 'node:http';
-import { Role, User } from '@prisma/client';
+import { User } from '@prisma/client';
 import AppException from '../errors/AppException';
 import TokenService from './TokenService';
 import prisma from '../database/Prisma';
@@ -57,11 +57,7 @@ class Socket {
       socket.on('identify', async () => {
         const user = await handleAuth();
         if (user) {
-          this.io.to(user.id).emit('identified', {
-            name: user.name,
-            email: user.email,
-            role: user.roles,
-          });
+          this.io.to(user.id).emit('identified', user);
         }
       });
 
@@ -107,21 +103,17 @@ class Socket {
 
   /**
    * Emit event to all users with specific role
-   * @param {Role} role
+   * @param {string} role
    * @param {string} event
    * @param {T} data
    */
-  static async emitToRole<T>(role: Role, event: string, data: T) {
-    const userIds = await prisma.user.findMany({
-      where: {
-        roles: role,
-      },
-      select: {
-        id: true,
-      },
+  static async emitToRole<T>(role: string, event: string, data: T) {
+    const roles = await prisma.roles.findUnique({
+      where: { name: role },
+      include: { users: true },
     });
 
-    userIds.forEach((user) => {
+    roles?.users.forEach((user) => {
       this.io.to(user.id).emit(event, data);
     });
   }
@@ -152,11 +144,7 @@ class Socket {
         this.userSocketIdMap.set(userId, new Set());
       }
       this.userSocketIdMap.get(userId)?.add(socketId);
-      this.io.to(user.id).emit('identified', {
-        name: user.name,
-        email: user.email,
-        role: user.roles,
-      });
+      this.io.to(user.id).emit('identified', user);
     } catch (error) {
       console.error(error);
     }

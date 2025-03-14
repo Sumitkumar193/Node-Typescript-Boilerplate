@@ -17,6 +17,7 @@ export default async function Authenticate(
       req.cookies?.accessToken ||
       req.header('Authorization')?.replace('Bearer ', '');
 
+    // If token is not provided
     if (!token) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
@@ -28,6 +29,7 @@ export default async function Authenticate(
       throw new AppException(UNAUTHORIZED_MESSAGE, 401);
     }
 
+    // If token is not valid
     if (!decoded) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
@@ -36,15 +38,18 @@ export default async function Authenticate(
       where: { id: token },
     });
 
+    // If token is not found or disabled
     if (!tokenRecord || tokenRecord.disabled) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
 
     const user = await prisma.user.findUnique({
       where: { id: tokenRecord.userId, disabled: false },
+      include: { roles: true },
     });
 
-    if (!user) {
+    // If user is not found or disabled
+    if (!user || user.disabled) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
 

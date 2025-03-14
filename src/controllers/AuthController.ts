@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { User, Role } from '@prisma/client';
+import { User } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import ApiException from '../errors/ApiException';
 import prisma from '../database/Prisma';
@@ -28,12 +28,20 @@ export async function createUser(req: Request, res: Response) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const role = await prisma.roles.findFirst({
+      where: { name: 'User' },
+    });
+
+    if (!role) {
+      throw new ApiException('Role not found', 500);
+    }
+
     const user: User = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        roles: Role.USER,
+        roles: { connect: { id: role.id } },
       },
     });
 

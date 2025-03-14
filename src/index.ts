@@ -29,7 +29,8 @@ app.use(express.json());
 
 const limit = RateLimit({
   windowMs: 60 * 1000,
-  max: 15,
+  limit: 15,
+  message: 'Too many requests from this IP, please try again after a minute',
 });
 
 app.use(cookieParser());
