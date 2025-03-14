@@ -35,7 +35,7 @@ export default async function Authenticate(
     }
 
     const tokenRecord = await prisma.userToken.findUnique({
-      where: { id: token },
+      where: { id: decoded.id },
     });
 
     // If token is not found or disabled
@@ -58,7 +58,8 @@ export default async function Authenticate(
 
     next();
   } catch (error) {
-    if (error instanceof ApiException) {
+    if (error instanceof ApiException || error instanceof AppException) {
+      res.clearCookie('accessToken');
       return res.status(error.status).json({
         success: false,
         message: error.message,

@@ -135,15 +135,38 @@ export async function loginUser(req: Request, res: Response) {
 
 export async function logoutUser(req: Request, res: Response) {
   try {
-    const { token } = req.body;
+    const { token, user } = req.body;
 
-    await TokenService.logoutUser(token);
+    await TokenService.logoutUserByTokenId(token.id, user);
 
     res.clearCookie('accessToken');
 
     return res.status(200).json({
       success: true,
       message: 'User logged out',
+    });
+  } catch (error) {
+    if (error instanceof ApiException) {
+      return res.status(error.status).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    throw error;
+  }
+}
+
+export async function logoutFromDevice(req: Request, res: Response) {
+  try {
+    const { id, user } = req.body;
+
+    await TokenService.logoutUserByTokenId(id, user);
+
+    res.clearCookie('accessToken');
+
+    return res.status(200).json({
+      success: true,
+      message: 'User logged out from device',
     });
   } catch (error) {
     if (error instanceof ApiException) {
