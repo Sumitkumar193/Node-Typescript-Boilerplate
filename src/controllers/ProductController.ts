@@ -150,10 +150,7 @@ export async function updateProduct(req: Request, res: Response) {
       stock: req.body.stock,
     };
 
-    const { hasError, errors } = validate(
-      updateProductValidation,
-      inputs,
-    );
+    const { hasError, errors } = validate(updateProductValidation, inputs);
 
     if (hasError) {
       throw new ApiException('Validation error', 422, errors);
