@@ -16,11 +16,7 @@ const { generateToken, doubleCsrfProtection } = doubleCsrf({
   size: 64,
 });
 
-export function AttachCsrf(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
+export function AttachCsrf(req: Request, res: Response): void {
   if (req.method === 'GET') {
     const csrfToken = generateToken(req, res);
     res.cookie('XSRF-TOKEN', csrfToken, {

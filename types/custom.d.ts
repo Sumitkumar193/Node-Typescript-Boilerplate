@@ -1,11 +1,17 @@
-import { Prisma, User } from '@prisma/client';
+import { Prisma, Roles, User } from '@prisma/client';
 import { JwtToken, Pagination } from '../src/interfaces/AppCommonInterface';
 
 declare namespace Express {
     export interface Request {
-        user?: User;
-        token?: JwtToken;
-        pagination?: Pagination;
+        headers: {
+            authorization?: string;
+            warning?: string;
+        };
+        body: {
+            user?: User & { roles: Roles };
+            token?: JwtToken;
+            pagination?: Pagination;
+        }
     }
 
     export interface Response<T> {
@@ -13,4 +19,4 @@ declare namespace Express {
         message: string;
         data: T;
     }
-}
+  }

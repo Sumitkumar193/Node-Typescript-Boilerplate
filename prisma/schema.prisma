@@ -5,38 +5,65 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-  User
+model Roles {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+
+  @@map("roles")
 }
 
 model User {
-  id        String      @id @default(cuid()) @map("_id")
-  email     String      @unique
-  name      String?
-  password  String
-  roles     Role
-  disabled  Boolean     @default(false)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  tokens    UserToken[]
+  id            String          @id @default(cuid())
+  email         String          @unique
+  name          String?
+  password      String
+  role          Int             @default(1)
+  roles         Roles           @relation(fields: [role], references: [id], onDelete: Cascade)
+  active        Boolean         @default(true)
+  disabled      Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  tokens        UserToken[]
+  PasswordReset PasswordReset[]
+
+  @@index([email])
+  @@map("users")
 }
 
 model UserToken {
-  id        String   @id @default(cuid()) @map("_id")
+  id        String   @id @default(cuid())
   userId    String
-  token     String
+  token     String   @unique
   disabled  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_tokens")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  disabled  Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+  @@map("password_reset")
 }

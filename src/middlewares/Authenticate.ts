@@ -17,6 +17,7 @@ export default async function Authenticate(
       req.cookies?.accessToken ||
       req.header('Authorization')?.replace('Bearer ', '');
 
+    // If token is not provided
     if (!token) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
@@ -28,24 +29,41 @@ export default async function Authenticate(
       throw new AppException(UNAUTHORIZED_MESSAGE, 401);
     }
 
+    // If token is not valid
     if (!decoded) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
 
     const tokenRecord = await prisma.userToken.findUnique({
-      where: { id: token },
+      where: { id: decoded.id },
     });
 
+    // If token is not found or disabled
     if (!tokenRecord || tokenRecord.disabled) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
 
     const user = await prisma.user.findUnique({
       where: { id: tokenRecord.userId, disabled: false },
+      include: { roles: true },
     });
 
     if (!user) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
+    }
+
+    if (!user.active) {
+      throw new ApiException(
+        'Your account has been temporarily disabled, To activate your account reset your password.',
+        403,
+      );
+    }
+
+    if (user.disabled) {
+      throw new ApiException(
+        'Your account is disabled please contact Administrator',
+        401,
+      );
     }
 
     req.body.token = decoded;
@@ -53,7 +71,8 @@ export default async function Authenticate(
 
     next();
   } catch (error) {
-    if (error instanceof ApiException) {
+    if (error instanceof ApiException || error instanceof AppException) {
+      res.clearCookie('accessToken');
       return res.status(error.status).json({
         success: false,
         message: error.message,
