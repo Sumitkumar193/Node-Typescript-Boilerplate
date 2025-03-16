@@ -8,7 +8,7 @@
     "build": "rimraf dist && mkdirp dist && tsc",
     "start": "nodemon ./dist/index.js",
     "lint": "prettier --write \"src/**/*.{ts,tsx}\" && eslint \"src/**/*.{ts,tsx}\"",
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node ./prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
