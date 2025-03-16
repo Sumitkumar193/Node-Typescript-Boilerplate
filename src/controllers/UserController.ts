@@ -77,10 +77,8 @@ export async function getUsers(req: Request, res: Response) {
 
     return res.status(200).json({
       success: true,
-      data: {
-        users: result.data,
-        meta: result.meta,
-      },
+      data: result.data,
+      meta: result.meta,
     });
   } catch (error) {
     if (error instanceof ApiException) {

@@ -43,12 +43,14 @@ export async function createUser(req: Request, res: Response) {
 
     const token = await TokenService.generateUserToken(user);
 
-    res.cookie('accessToken', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 24,
-    });
+    if (process.env.AUTH_COOKIE !== 'false') {
+      res.cookie('accessToken', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 1000 * 60 * 60 * 24,
+      });
+    }
 
     return res.status(201).json({
       success: true,
@@ -113,12 +115,14 @@ export async function loginUser(req: Request, res: Response) {
 
     const token = await TokenService.generateUserToken(user);
 
-    res.cookie('accessToken', token, {
-      httpOnly: true,
-      secure: (process.env.NODE_ENV as string) === 'production',
-      sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 24,
-    });
+    if (process.env.AUTH_COOKIE !== 'false') {
+      res.cookie('accessToken', token, {
+        httpOnly: true,
+        secure: (process.env.NODE_ENV as string) === 'production',
+        sameSite: 'lax',
+        maxAge: 1000 * 60 * 60 * 24,
+      });
+    }
 
     return res.status(200).json({
       success: true,

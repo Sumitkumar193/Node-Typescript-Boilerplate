@@ -11,6 +11,7 @@ import RedisClient from '../cache/Redis';
 
 const redis = RedisClient.getInstance();
 
+// Models and operations to exclude from caching
 const excludeCacheModels: Record<string, Record<string, boolean>> = {
   User: {
     findMany: true,

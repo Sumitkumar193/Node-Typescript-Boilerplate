@@ -12,6 +12,8 @@ import Socket from './services/Socket';
 import { AttachCsrf, VerifyCsrf } from './middlewares/Csrf';
 import UserRoutes from './routes/UserRoutes';
 import AuthRoutes from './routes/AuthRoutes';
+import ProductRoutes from './routes/ProductRoutes';
+import OrderRoutes from './routes/OrderRoutes';
 
 dotenv.config();
 RedisClient.init();
@@ -43,6 +45,8 @@ app.use('/api', limit);
 app.get('/api/keep-alive', AttachCsrf);
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
+app.use('/api/products', ProductRoutes);
+app.use('/api/orders', OrderRoutes);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const fallback: ErrorRequestHandler = (err, _req, res, _next) => {

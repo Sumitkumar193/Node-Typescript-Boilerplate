@@ -1,0 +1,734 @@
+{
+	"info": {
+		"_postman_id": "86a20916-dc93-493b-9b93-1285912fa2f9",
+		"name": "Woro",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "43147946"
+	},
+	"item": [
+		{
+			"name": "Phase 1",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\" : \"red\",\n  \"email\": \"red@gmail.com\",\n  \"password\": \"password\",\n  \"confirmPassword\": \"password\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/auth/register",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"auth",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login Admin",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"Admin123!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/auth/login",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot Password (Send Email)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"itsme.sumit96@gmail.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/auth/forgot-password",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"auth",
+								"forgot-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"itsme.sumit96@gmail.com\",\n  \"password\": \"password\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/auth/login",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot Password (GET Email)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:4000/api/auth/forgot-password/070338609227bf619cb0ef6b65827235e6cf25deea46d66ca6e57b3eb851c2b5",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"auth",
+								"forgot-password",
+								"070338609227bf619cb0ef6b65827235e6cf25deea46d66ca6e57b3eb851c2b5"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot Password (Reset Password)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"password\": \"password\",\n  \"confirmPassword\": \"password\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/auth/forgot-password/070338609227bf619cb0ef6b65827235e6cf25deea46d66ca6e57b3eb851c2b5",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"auth",
+								"forgot-password",
+								"070338609227bf619cb0ef6b65827235e6cf25deea46d66ca6e57b3eb851c2b5"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Logged in User Details",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:4000/api/users/me",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"users",
+								"me"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Users Listing",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:4000/api/users",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"users"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Phase 2",
+			"item": [
+				{
+					"name": "Get Products Listing",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:4000/api/products",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"products"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Product",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Test Apple\",\n  \"description\": \"Sample Product.\",\n  \"price\": 1.2,\n  \"stock\": 1000\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/products",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"products"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product By ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:4000/api/products/cm8bwg5rj0000z958mxzqi88y",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"products",
+								"cm8bwg5rj0000z958mxzqi88y"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Product",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Apple 2\",\n  \"price\": 2.2,\n  \"stock\": 120\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/products/cm8bwg5rj0000z958mxzqi88y",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"products",
+								"cm8bwg5rj0000z958mxzqi88y"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Product Stock",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"stock\": 80\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/products/cm8bwg5rj0000z958mxzqi88y/stock",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"products",
+								"cm8bwg5rj0000z958mxzqi88y",
+								"stock"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Orders Listing",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:4000/api/orders",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Order",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"items\": [\n    {\n      \"productId\": \"cm8bwg5rj0000z958mxzqi88y\",\n      \"quantity\": 10\n    },\n    {\n      \"productId\": \"cm8bwhgj10001z9581e4iqfau\",\n      \"quantity\": 5\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/orders",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Details",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:4000/api/orders/cm8by6m2x0001z9woha4pi7yl",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"orders",
+								"cm8by6m2x0001z9woha4pi7yl"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Order Status",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "x-csrf-token",
+								"value": "{{csrf_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"status\": \"PROCESSING\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/orders/cm8by6m2x0001z9woha4pi7yl",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"orders",
+								"cm8by6m2x0001z9woha4pi7yl"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Keep Alive",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"let cookies = pm.cookies.toObject();\r",
+							"\r",
+							"if (cookies['xsrf-token']) {\r",
+							"    pm.collectionVariables.set('csrf_token', cookies['xsrf-token']);\r",
+							"    console.log('CSRF token set:', cookies['xsrf-token']);\r",
+							"} else {\r",
+							"    console.warn('xsrf-token cookie not found');\r",
+							"}"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:4000/api/keep-alive",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4000",
+					"path": [
+						"api",
+						"keep-alive"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "csrf_token",
+			"value": ""
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
