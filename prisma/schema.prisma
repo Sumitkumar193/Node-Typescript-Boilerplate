@@ -9,6 +9,11 @@ generator client {
   previewFeatures = ["multiSchema"]
 }
 
+generator seed {
+  provider = "ts-node"
+  output = "prisma/seed.ts"
+}
+
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
