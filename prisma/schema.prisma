@@ -25,16 +25,18 @@ model Roles {
 }
 
 model User {
-  id        String      @id @default(cuid())
-  email     String      @unique
-  name      String?
-  password  String
-  role      Int         @default(1)
-  roles     Roles       @relation(fields: [role], references: [id], onDelete: Cascade)
-  disabled  Boolean     @default(false)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  tokens    UserToken[]
+  id            String          @id @default(cuid())
+  email         String          @unique
+  name          String?
+  password      String
+  role          Int             @default(1)
+  roles         Roles           @relation(fields: [role], references: [id], onDelete: Cascade)
+  active        Boolean         @default(true)
+  disabled      Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  tokens        UserToken[]
+  PasswordReset PasswordReset[]
 
   @@index([email])
   @@map("users")
@@ -43,7 +45,7 @@ model User {
 model UserToken {
   id        String   @id @default(cuid())
   userId    String
-  token     String   @db.Text
+  token     String   @unique
   disabled  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -53,3 +55,15 @@ model UserToken {
   @@map("user_tokens")
 }
 
+model PasswordReset {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  disabled  Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+  @@map("password_reset")
+}

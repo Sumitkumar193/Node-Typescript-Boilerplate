@@ -48,9 +48,22 @@ export default async function Authenticate(
       include: { roles: true },
     });
 
-    // If user is not found or disabled
-    if (!user || user.disabled) {
+    if (!user) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
+    }
+
+    if (!user.active) {
+      throw new ApiException(
+        'Your account has been temporarily disabled, To activate your account reset your password.',
+        403,
+      );
+    }
+
+    if (user.disabled) {
+      throw new ApiException(
+        'Your account is disabled please contact Administrator',
+        401,
+      );
     }
 
     req.body.token = decoded;

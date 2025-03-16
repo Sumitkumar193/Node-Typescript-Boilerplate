@@ -1,8 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import crypto from 'node:crypto';
-import MemoryCache from './CacheDrivers/MemoryCache';
-import RedisCache from './CacheDrivers/RedisCache';
-import { CacheStorage } from '../interfaces/CacheInterface';
 import {
   PaginatedResponse,
   PaginationParams,
@@ -11,106 +7,103 @@ import {
   findManyArgs,
   where as whereArgs,
 } from '../interfaces/PrismaCustomInterface';
+import RedisClient from '../cache/Redis';
 
-const cacheDriver = process.env.CACHE_DRIVER || 'memory';
+const redis = RedisClient.getInstance();
 
-// Create cache instance based on driver
-const cacheInstance: CacheStorage = (() => {
-  switch (cacheDriver) {
-    case 'redis':
-      return new RedisCache();
-    case 'memory':
-    default:
-      return new MemoryCache();
-  }
-})();
-
-// Generate consistent hash key for caching
-const generateCacheKey = (
-  model: string,
-  operation: string,
-  args: unknown,
-): string => {
-  const argsString = JSON.stringify(args);
-  const hash = crypto
-    .createHash('md5')
-    .update(`${model}:${operation}:${argsString}`)
-    .digest('hex');
-  return hash;
-};
-
-// Determine if operation should be cached
-const isCacheableOperation = (operation: string): boolean => {
-  const readOperations: Record<string, boolean> = {
-    findUnique: true,
-    findUniqueOrThrow: true,
-    findFirst: true,
-    findFirstOrThrow: true,
+const excludeCacheModels: Record<string, Record<string, boolean>> = {
+  User: {
     findMany: true,
-    count: true,
-    aggregate: true,
-  };
-  return !!readOperations[operation];
+  },
 };
 
-// Determine if operation should invalidate cache
-const isInvalidatingOperation = (operation: string): boolean => {
-  const writeOperations: Record<string, boolean> = {
-    create: true,
-    createMany: true,
-    update: true,
-    updateMany: true,
-    delete: true,
-    deleteMany: true,
-    upsert: true,
-  };
-  return !!writeOperations[operation];
+const cacheableOperations: Record<string, boolean> = {
+  findFirst: true,
+  findUnique: true,
+  findFirstOrThrow: true,
+  findUniqueOrThrow: true,
+  findMany: true,
+  count: true,
 };
 
-const getModelFromOperation = (model: string): string => model.toLowerCase();
+const invalidateCacheOperations: Record<string, boolean> = {
+  create: true,
+  update: true,
+  updateMany: true,
+  upsert: true,
+  deleteMany: true,
+  delete: true,
+};
 
-const getRelatedFindManyPattern = (model: string): string =>
-  `^${model}:findMany`;
+// Default TTL for cached data (in seconds)
+const DEFAULT_CACHE_TTL = parseInt(process.env.CACHE_TTL || '60', 10);
 
 const prisma = new PrismaClient().$extends({
   query: {
     $allModels: {
-      async $allOperations({ model, operation, args, query }) {
-        const modelName = getModelFromOperation(model);
-
-        if (
-          !isCacheableOperation(operation) &&
-          !isInvalidatingOperation(operation)
-        ) {
+      async $allOperations({ args, model, operation, query }) {
+        // Skip caching for excluded models
+        if (excludeCacheModels?.[model]?.[operation]) {
           return query(args);
         }
 
-        // Generate cache key
-        const cacheKey = generateCacheKey(modelName, operation, args);
+        // Generate a cache key based on model, operation, and query args
+        const cacheKey = `prisma:${model}:${operation}:${JSON.stringify(args)}`;
 
-        if (isInvalidatingOperation(operation)) {
-          if (operation === 'update' && args.where?.id) {
-            const userCacheKey = generateCacheKey(modelName, 'findUnique', {
-              id: args.where.id,
-            });
-            await cacheInstance.delete(userCacheKey);
+        // For cacheable operations (read queries)
+        if (cacheableOperations[operation]) {
+          try {
+            // Check if data exists in Redis cache
+            const cachedData = await redis.get(cacheKey);
 
-            const findManyPattern = getRelatedFindManyPattern(modelName);
-            await cacheInstance.clear(findManyPattern);
-          } else {
-            await cacheInstance.clear(`^${modelName}:`);
+            if (cachedData) {
+              return JSON.parse(cachedData);
+            }
+
+            // Execute the query if not cached
+            const result = await query(args);
+
+            // Cache the result with TTL
+            if (result !== null && result !== undefined) {
+              await redis.set(
+                cacheKey,
+                JSON.stringify(result),
+                'EX',
+                DEFAULT_CACHE_TTL,
+              );
+            }
+
+            return result;
+          } catch (error) {
+            console.error(`Cache error for ${cacheKey}:`, error);
+            // Fallback to database query if cache fails
+            return query(args);
           }
-          return query(args);
         }
 
-        const cachedResult = await cacheInstance.get(cacheKey);
-        if (cachedResult !== undefined) {
-          return cachedResult;
+        // For cache-invalidating operations (write queries)
+        if (invalidateCacheOperations[operation]) {
+          // Execute the query first
+          const result = await query(args);
+
+          try {
+            // Invalidate all cached queries for this model
+            const keys = await redis.keys(`prisma:${model}:*`);
+            if (keys.length > 0) {
+              await redis.del(...keys);
+              console.log(
+                `Invalidated ${keys.length} cache entries for model ${model}`,
+              );
+            }
+          } catch (error) {
+            console.error(`Cache invalidation error for ${model}:`, error);
+          }
+
+          return result;
         }
 
-        const result = await query(args);
-        await cacheInstance.set(cacheKey, result);
-        return result;
+        // For any other operations, just execute the query without caching
+        return query(args);
       },
     },
   },

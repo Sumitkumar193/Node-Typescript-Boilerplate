@@ -7,7 +7,8 @@ import TokenService from '../services/TokenService';
 export async function getUsers(req: Request, res: Response) {
   try {
     const { search, sortBy, sortDir } = req.query;
-    const { page, limit, offset } = req.body.pagination;
+    const { user, pagination } = req.body;
+    const { page, limit, offset } = pagination;
 
     const where: Prisma.UserWhereInput = {};
 
@@ -31,6 +32,20 @@ export async function getUsers(req: Request, res: Response) {
       ];
     }
 
+    where.AND = [
+      {
+        role: {
+          lte: user.role,
+        },
+      },
+      {
+        disabled: false,
+      },
+      {
+        active: true,
+      },
+    ];
+
     let orderBy: Prisma.UserOrderByWithRelationInput = {};
 
     if (sortBy && sortDir) {
@@ -50,7 +65,6 @@ export async function getUsers(req: Request, res: Response) {
         id: true,
         name: true,
         email: true,
-        disabled: true,
         createdAt: true,
         roles: {
           select: {

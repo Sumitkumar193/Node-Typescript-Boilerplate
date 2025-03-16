@@ -3,6 +3,7 @@ export default class ApiException<T> extends Error {
     message: string,
     public status: number,
     public data?: T,
+    public success = false,
   ) {
     super(message);
   }

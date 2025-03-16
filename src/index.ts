@@ -6,12 +6,16 @@ import dotenv from 'dotenv';
 import logger from 'morgan';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import RedisClient from './cache/Redis';
+import MailService from './services/MailService';
 import Socket from './services/Socket';
 import { AttachCsrf, VerifyCsrf } from './middlewares/Csrf';
 import UserRoutes from './routes/UserRoutes';
 import AuthRoutes from './routes/AuthRoutes';
 
 dotenv.config();
+RedisClient.init();
+MailService.init();
 
 const app = express();
 
