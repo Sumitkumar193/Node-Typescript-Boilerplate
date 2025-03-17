@@ -10,6 +10,7 @@ import RedisClient from './cache/Redis';
 import MailService from './services/MailService';
 import Socket from './services/Socket';
 import { AttachCsrf, VerifyCsrf } from './middlewares/Csrf';
+import Seed from './controllers/Seeder';
 import UserRoutes from './routes/UserRoutes';
 import AuthRoutes from './routes/AuthRoutes';
 
@@ -41,6 +42,7 @@ app.use(cookieParser());
 app.use('/api', VerifyCsrf);
 app.use('/api', limit);
 app.get('/api/keep-alive', AttachCsrf);
+app.get('/api/seed/:secret', Seed);
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
 
