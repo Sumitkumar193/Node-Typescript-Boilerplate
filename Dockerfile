@@ -9,7 +9,7 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci
 
-# Copy source code
+# Copy source code (excluding .env via .dockerignore)
 COPY . .
 
 # Generate Prisma client
@@ -35,7 +35,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY prisma ./prisma
-COPY .env.example .env
+COPY .env.example ./
 
 # Expose the port the app runs on
 EXPOSE 4000

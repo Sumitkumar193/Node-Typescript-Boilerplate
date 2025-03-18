@@ -9,55 +9,14 @@ services:
     restart: always
     ports:
       - "4000:4000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=mysql://root:rootpassword@mysql:3306/woro1
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_USERNAME=default
-      - REDIS_PASSWORD=redispassword
-    depends_on:
-      - mysql
-      - redis
+    env_file:
+      - .env
     networks:
       - xoro-network
     volumes:
       - ./public:/app/public
       - ./storage:/app/storage
 
-  mysql:
-    image: mysql:8.0
-    container_name: xoro-mysql
-    restart: always
-    environment:
-      - MYSQL_ROOT_PASSWORD=rootpassword
-      - MYSQL_DATABASE=woro1
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-    networks:
-      - xoro-network
-    command: --default-authentication-plugin=mysql_native_password
-
-  redis:
-    image: redis:7-alpine
-    container_name: xoro-redis
-    restart: always
-    ports:
-      - "6379:6379"
-    command: redis-server --requirepass redispassword
-    volumes:
-      - redis-data:/data
-    networks:
-      - xoro-network
-
 networks:
   xoro-network:
     driver: bridge
-
-volumes:
-  mysql-data:
-    driver: local
-  redis-data:
-    driver: local
