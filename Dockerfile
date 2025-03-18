@@ -35,7 +35,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY prisma ./prisma
-COPY .env.example ./
+
+# Create .env file
+RUN echo "PORT=4000" > .env
 
 # Expose the port the app runs on
 EXPOSE 4000
