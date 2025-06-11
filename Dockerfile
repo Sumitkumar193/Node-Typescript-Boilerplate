@@ -22,7 +22,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Expose port (from .env or default 3000)
-EXPOSE 3000
+EXPOSE ${PORT}
 
 # Start the app
 # CMD ["npm", "run", "dev"]

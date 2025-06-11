@@ -39,7 +39,7 @@ services:
     env_file:
       - .env
     ports:
-      - "3000:3000"
+      - "${PORT}:${PORT}"
     volumes:
       - .:/app
     command: ["node", "dist/index.js"]
