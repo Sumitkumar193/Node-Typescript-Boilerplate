@@ -1,5 +1,5 @@
-import { Request, Response } from 'express';
-import { User, Role } from '@prisma/client';
+import { NextFunction, Request, Response } from 'express';
+import { User } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import ApiException from '../errors/ApiException';
 import prisma from '../database/Prisma';
@@ -10,7 +10,11 @@ import {
 import validate from '../services/ValidationService';
 import TokenService from '../services/TokenService';
 
-export async function createUser(req: Request, res: Response) {
+export async function createUser(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { email, password, name } = req.body;
 
@@ -33,16 +37,17 @@ export async function createUser(req: Request, res: Response) {
         name,
         email,
         password: hashedPassword,
-        roles: Role.USER,
       },
     });
+
+    await prisma.user.assignRole(user.id, 'User');
 
     const token = await TokenService.generateUserToken(user);
 
     res.cookie('accessToken', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 1000 * 60 * 60 * 24,
     });
 
@@ -58,18 +63,15 @@ export async function createUser(req: Request, res: Response) {
       },
     });
   } catch (error) {
-    if (error instanceof ApiException) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-        data: error.data,
-      });
-    }
-    throw error;
+    return next(error);
   }
 }
 
-export async function loginUser(req: Request, res: Response) {
+export async function loginUser(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { email, password } = req.body;
 
@@ -98,7 +100,7 @@ export async function loginUser(req: Request, res: Response) {
     res.cookie('accessToken', token, {
       httpOnly: true,
       secure: (process.env.NODE_ENV as string) === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 1000 * 60 * 60 * 24,
     });
 
@@ -114,20 +116,17 @@ export async function loginUser(req: Request, res: Response) {
       },
     });
   } catch (error) {
-    if (error instanceof ApiException) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-        data: error.data,
-      });
-    }
-    throw error;
+    return next(error);
   }
 }
 
-export async function logoutUser(req: Request, res: Response) {
+export async function logoutUser(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
-    const { token } = req.body;
+    const { token } = res.locals;
 
     await TokenService.logoutUser(token);
 
@@ -138,19 +137,17 @@ export async function logoutUser(req: Request, res: Response) {
       message: 'User logged out',
     });
   } catch (error) {
-    if (error instanceof ApiException) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-      });
-    }
-    throw error;
+    return next(error);
   }
 }
 
-export async function logoutFromAllDevices(req: Request, res: Response) {
+export async function logoutFromAllDevices(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
-    const { user } = req.body;
+    const { user } = res.locals;
 
     await TokenService.logoutFromAllDevices(user);
 
@@ -161,12 +158,6 @@ export async function logoutFromAllDevices(req: Request, res: Response) {
       message: 'User logged out from all devices',
     });
   } catch (error) {
-    if (error instanceof ApiException) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-      });
-    }
-    throw error;
+    return next(error);
   }
 }

@@ -101,7 +101,7 @@ This is a boilerplate for building a Node.js application with TypeScript. It inc
   ```typescript
   import Socket from '/src/socket/Socket';
 
-  const { user } = req.body;
+  const { user } = res.locals;
   Socket.emitToUser(user.id, 'event-name', { data: 'data' });
   ```
   #### Example of Emitting event to specific roles

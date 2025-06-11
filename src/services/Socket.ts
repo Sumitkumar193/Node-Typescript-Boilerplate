@@ -4,6 +4,7 @@ import { Role, User } from '@prisma/client';
 import AppException from '../errors/AppException';
 import TokenService from './TokenService';
 import prisma from '../database/Prisma';
+import validateOrigin from './CorsService';
 
 /**
  * @class Socket
@@ -28,12 +29,18 @@ class Socket {
 
   private static idSocketMap: Map<string, ISocket> = new Map();
 
-  private static userSocketIdMap: Map<string, Set<string>> = new Map();
+  private static userSocketIdMap: Map<number, Set<string>> = new Map();
 
   static init(server: IServer) {
     this.io = new Server(server, {
       cors: {
-        origin: process.env.FRONTEND_URL ?? '*',
+        origin: (origin, callback) => {
+          if (!origin || validateOrigin(origin)) {
+            callback(null, true);
+          } else {
+            callback(new Error('Not allowed by CORS'));
+          }
+        },
         credentials: true,
       },
     });
@@ -42,7 +49,7 @@ class Socket {
       this.idSocketMap.set(socket.id, socket);
       socket.join('public');
 
-      const handleAuth = async (): Promise<User|null> => {
+      const handleAuth = async (): Promise<User | null> => {
         const token = socket.handshake.headers.cookie?.split('accessToken=')[1];
         if (!token) return null;
 
@@ -57,7 +64,10 @@ class Socket {
       socket.on('identify', async () => {
         const user = await handleAuth();
         if (user) {
-          this.io.to(user.id).emit('identified', { name: user.name, email: user.email, role: user.roles });
+          this.io.to(user.id.toString()).emit('identified', {
+            name: user.name,
+            email: user.email,
+          });
         }
       });
 
@@ -67,7 +77,7 @@ class Socket {
 
         this.userSocketIdMap.forEach((sockets, userId) => {
           if (sockets.has(socket.id)) {
-            socket.leave(userId);
+            socket.leave(userId.toString());
             sockets.delete(socket.id);
             if (sockets.size === 0) {
               this.userSocketIdMap.delete(userId);
@@ -93,32 +103,33 @@ class Socket {
 
   /**
    * Emit event to specific user
-   * @param {string} userId - User id
+   * @param {User} user - User id
    * @param {string} event - Event name
    * @param {T} data - Event data
    */
-  static emitToUser<T>(userId: string, event: string, data: T) {
-    this.io.to(userId).emit(event, data);
+  static emitToUser<T>(user: User, event: string, data: T) {
+    this.io.to(user.id.toString()).emit(event, data);
   }
 
   /**
    * Emit event to all users with specific role
-   * @param {Role} role 
-   * @param {string} event 
-   * @param {T} data 
+   * @param {Role} role
+   * @param {string} event
+   * @param {T} data
    */
   static async emitToRole<T>(role: Role, event: string, data: T) {
-    const userIds = await prisma.user.findMany({
+    // Fix: select userId, not id, from userRole
+    const userRoles = await prisma.userRole.findMany({
       where: {
-        roles: role,
+        roleId: role.id,
       },
       select: {
-        id: true,
+        userId: true,
       },
-    })
+    });
 
-    userIds.forEach((user) => {
-      this.io.to(user.id).emit(event, data);
+    userRoles.forEach((userRole) => {
+      this.io.to(userRole.userId.toString()).emit(event, data);
     });
   }
 
@@ -143,12 +154,16 @@ class Socket {
       if (!socket) {
         throw new AppException('Socket not found', 404);
       }
-      socket.join(userId);
+      socket.join(userId.toString());
       if (!this.userSocketIdMap.has(userId)) {
         this.userSocketIdMap.set(userId, new Set());
       }
       this.userSocketIdMap.get(userId)?.add(socketId);
-      this.io.to(user.id).emit('identified', { name: user.name, email: user.email, role: user.roles });
+      this.io.to(userId.toString()).emit('identified', {
+        name: user.name,
+        email: user.email,
+        // Remove role: user.roles, as User does not have roles directly
+      });
     } catch (error) {
       console.error(error);
     }

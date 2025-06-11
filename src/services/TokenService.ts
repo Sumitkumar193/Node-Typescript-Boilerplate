@@ -72,11 +72,19 @@ class TokenService {
           disabled: false,
         },
         include: {
-          user: true,
+          User: {
+            include: {
+              UserRoles: {
+                include: {
+                  Role: true,
+                },
+              },
+            },
+          },
         },
       });
 
-      return userWithToken?.user ?? null;
+      return userWithToken?.User ?? null;
     } catch (error) {
       console.error('Error verifying token:', error);
       return null;

@@ -1,10 +1,14 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import ApiException from '../errors/ApiException';
 import prisma from '../database/Prisma';
 
-export async function getUsers(req: Request, res: Response) {
+export async function getUsers(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
-    const { page, limit, offset } = req.body.pagination;
+    const { page, limit, offset } = res.locals.pagination;
 
     const usersCount = await prisma.user.count();
 
@@ -28,23 +32,17 @@ export async function getUsers(req: Request, res: Response) {
       },
     });
   } catch (error) {
-    if (error instanceof ApiException) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-      });
-    }
-    throw error;
+    return next(error);
   }
 }
 
-export async function getUser(req: Request, res: Response) {
+export async function getUser(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
 
     const user = await prisma.user.findUnique({
       where: {
-        id,
+        id: parseInt(id, 10),
       },
     });
 
@@ -59,23 +57,21 @@ export async function getUser(req: Request, res: Response) {
       },
     });
   } catch (error) {
-    if (error instanceof ApiException) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-      });
-    }
-    throw error;
+    return next(error);
   }
 }
 
-export async function disableUser(req: Request, res: Response) {
+export async function disableUser(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { id } = req.params;
 
     const user = await prisma.user.update({
       where: {
-        id,
+        id: parseInt(id, 10),
       },
       data: {
         disabled: true,
@@ -90,12 +86,6 @@ export async function disableUser(req: Request, res: Response) {
       },
     });
   } catch (error) {
-    if (error instanceof ApiException) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-      });
-    }
-    throw error;
+    return next(error);
   }
 }
