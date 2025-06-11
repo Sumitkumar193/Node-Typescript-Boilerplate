@@ -13,12 +13,14 @@ export default async function Authenticate(
   next: NextFunction,
 ) {
   try {
-    const { accessToken } = req.cookies;
-    if (!accessToken) {
+    const token =
+      req.cookies?.accessToken ||
+      req.header('Authorization')?.replace('Bearer ', '');
+
+    // If token is not provided
+    if (!token) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
-
-    const token = accessToken.split(' ')[1];
 
     let decoded: JwtToken | null = null;
     try {
@@ -27,14 +29,16 @@ export default async function Authenticate(
       throw new AppException(UNAUTHORIZED_MESSAGE, 401);
     }
 
+    // If token is not valid
     if (!decoded) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
 
     const tokenRecord = await prisma.userToken.findUnique({
-      where: { id: token },
+      where: { id: decoded.id },
     });
 
+    // If token is not found or disabled
     if (!tokenRecord || tokenRecord.disabled) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
@@ -55,7 +59,8 @@ export default async function Authenticate(
 
     next();
   } catch (error) {
-    if (error instanceof ApiException) {
+    if (error instanceof ApiException || error instanceof AppException) {
+      res.clearCookie('accessToken');
       return res.status(error.status).json({
         success: false,
         message: error.message,

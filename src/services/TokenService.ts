@@ -1,4 +1,4 @@
-import { User } from '@prisma/client';
+import { User, UserToken } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import prisma from '../database/Prisma';
@@ -31,10 +31,14 @@ class TokenService {
     return token;
   };
 
-  static logoutUser = async (token: JwtToken): Promise<void> => {
-    await prisma.userToken.updateMany({
+  static logoutUserByTokenId = async (
+    id: string,
+    user: User,
+  ): Promise<void> => {
+    await prisma.userToken.update({
       where: {
-        id: token.id,
+        id: parseInt(id, 10),
+        userId: user.id,
         disabled: false,
       },
       data: {
@@ -89,6 +93,17 @@ class TokenService {
       console.error('Error verifying token:', error);
       return null;
     }
+  };
+
+  static getUsersActiveTokens = async (user: User): Promise<UserToken[]> => {
+    const activeTokens = await prisma.userToken.findMany({
+      where: {
+        userId: user.id,
+        disabled: false,
+      },
+    });
+
+    return activeTokens;
   };
 }
 

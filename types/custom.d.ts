@@ -15,4 +15,4 @@ declare namespace Express {
         message: string;
         data: T;
     }
-}
+  }
