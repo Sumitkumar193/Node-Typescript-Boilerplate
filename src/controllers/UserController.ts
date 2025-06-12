@@ -11,7 +11,7 @@ export async function getUsers(
 ) {
   try {
     const { page, limit, offset } = res.locals.pagination;
-    const {search, sortBy, sortDir} = req.query;
+    const { search, sortBy, sortDir } = req.query;
 
     const where: Prisma.UserWhereInput = {};
 
@@ -60,7 +60,7 @@ export async function getUsers(
         id: true,
         name: true,
         email: true,
-        createdAt: true
+        createdAt: true,
       },
     });
 
@@ -107,7 +107,6 @@ export async function disableUser(
   next: NextFunction,
 ) {
   try {
-    const { user: loggedInUser } = req.body;
     const { id } = req.params;
 
     const findUserWithPermission = await prisma.user.findFirst({
@@ -180,7 +179,11 @@ export async function getProfile(req: Request, res: Response) {
   }
 }
 
-export async function listTokens(req: Request, res: Response, next: NextFunction) {
+export async function listTokens(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { user } = req.body;
 

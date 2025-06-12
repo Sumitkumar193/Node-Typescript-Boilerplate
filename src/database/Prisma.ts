@@ -9,6 +9,32 @@ import {
 } from '../interfaces/AppCommonInterface';
 
 const prisma = new PrismaClient().$extends({
+  query: {
+    $allModels: {
+      async create({ model, operation, args, query }) {
+        console.log(`Operation: ${operation} on model: ${model}`, args);
+        return query(args);
+      },
+      async createMany({ model, operation, args, query }) {
+        console.log(`Operation: ${operation} on model: ${model}`, args);
+        return query(args);
+      },
+      async update({ model, operation, args, query }) {
+        // Log the operation
+        console.log(`Operation: ${operation} on model: ${model}`, args);
+
+        // Call the original query
+        return query(args);
+      },
+      async updateMany({ model, operation, args, query }) {
+        // Log the operation
+        console.log(`Operation: ${operation} on model: ${model}`, args);
+
+        // Call the original query
+        return query(args);
+      },
+    },
+  },
   model: {
     $allModels: {
       async paginate<T>({

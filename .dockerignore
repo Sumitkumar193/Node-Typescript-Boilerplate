@@ -1,0 +1,19 @@
+# ✅ Keep prisma/schema.prisma
+# ❌ Ignore generated output
+
+node_modules
+dist
+.env
+.env.*
+coverage
+
+# Only ignore generated Prisma stuff, not the schema
+.prisma/client
+# Optional: ignore dev-time migration files if using deploy
+prisma/migrations
+
+# IDE and system files
+.DS_Store
+.idea
+.vscode
+*.log

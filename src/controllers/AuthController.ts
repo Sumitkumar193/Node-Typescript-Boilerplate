@@ -251,7 +251,11 @@ export async function getResetPasswordEmail(req: Request, res: Response) {
   }
 }
 
-export async function resetPassword(req: Request, res: Response, next: NextFunction) {
+export async function resetPassword(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { id } = req.params;
     const { password, confirmPassword } = req.body;
@@ -340,7 +344,11 @@ export async function logoutUser(
   }
 }
 
-export async function logoutFromDevice(req: Request, res: Response, next: NextFunction) {
+export async function logoutFromDevice(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { id, user } = req.body;
 

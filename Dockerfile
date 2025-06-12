@@ -24,6 +24,8 @@ RUN npm run build
 # Expose port (from .env or default 3000)
 EXPOSE ${PORT}
 
-# Start the app
-# CMD ["npm", "run", "dev"]
-CMD ["pm2-runtime", "dist/index.js"]
+# Make deploy.sh executable
+RUN chmod +x deploy.sh
+
+# Execute production.sh script
+ENTRYPOINT ["./deploy.sh"]
