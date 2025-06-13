@@ -5,6 +5,9 @@ import { createServer } from 'node:http';
 import dotenv from 'dotenv';
 import logger from 'morgan';
 import helmet from 'helmet';
+import session from 'express-session';
+import cookieParser from 'cookie-parser';
+
 import Socket from './services/Socket';
 import ApiException from './errors/ApiException';
 import RedisService from './services/RedisService';
@@ -33,11 +36,28 @@ const corsOptions: CorsOptions = {
   credentials: true,
 };
 
+// ----- Global Middlewares -----
 app.use(express.static('public'));
 app.use(logger('dev'));
 app.use(cors(corsOptions));
 app.use(helmet());
 app.use(express.json());
+app.use(cookieParser());
+
+// ----- Session Setup -----
+app.use(session({
+  secret: process.env.SESSION_SECRET ?? 'super_secret',
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none') ?? 'lax',
+    maxAge: parseInt(process.env.COOKIE_TTL ?? '86400', 10) * 1000,
+  },
+}));
+
+app.use('/api', VerifyCsrf);
 
 const limit = RateLimit({
   windowMs: 60 * 1000,
@@ -45,7 +65,6 @@ const limit = RateLimit({
   message: 'Too many requests from this IP, please try again after a minute',
 });
 
-app.use('/api', VerifyCsrf);
 app.use('/api/', limit);
 app.get('/api/keep-alive', AttachCsrf);
 app.use('/api/users', UserRoutes);
