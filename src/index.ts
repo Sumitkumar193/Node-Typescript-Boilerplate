@@ -43,8 +43,6 @@ app.use(cors(corsOptions));
 app.use(helmet());
 app.use(express.json());
 app.use(cookieParser());
-
-// ----- Session Setup -----
 app.use(session({
   secret: process.env.SESSION_SECRET ?? 'super_secret',
   resave: false,
@@ -57,7 +55,18 @@ app.use(session({
   },
 }));
 
-app.use('/api', VerifyCsrf);
+app.use((req, res, next) => {
+  if (
+    req.method === 'GET' ||
+    req.method === 'HEAD' ||
+    req.method === 'OPTIONS' ||
+    req.path.startsWith('/public') ||
+    req.path === '/api/keep-alive'
+  ) {
+    return next();
+  }
+  return VerifyCsrf(req, res, next);
+});
 
 const limit = RateLimit({
   windowMs: 60 * 1000,
