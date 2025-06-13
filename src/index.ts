@@ -55,6 +55,15 @@ app.use(session({
   },
 }));
 
+
+const limit = RateLimit({
+  windowMs: 60 * 1000,
+  limit: parseInt(process.env.RATELIMIT ?? '100', 10),
+  message: 'Too many requests from this IP, please try again after a minute',
+});
+
+app.use('/api/', limit);
+
 app.use((req, res, next) => {
   if (
     req.method === 'GET' ||
@@ -68,13 +77,6 @@ app.use((req, res, next) => {
   return VerifyCsrf(req, res, next);
 });
 
-const limit = RateLimit({
-  windowMs: 60 * 1000,
-  limit: parseInt(process.env.RATELIMIT ?? '100', 10),
-  message: 'Too many requests from this IP, please try again after a minute',
-});
-
-app.use('/api/', limit);
 app.get('/api/keep-alive', AttachCsrf);
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
