@@ -54,6 +54,13 @@ export default async function Authenticate(
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
 
+    if (!user.isVerified && req.path.includes('/auth/verify')) {
+      throw new ApiException(
+        'User account is not verified. Please verify your email.',
+        403,
+      );
+    }
+
     res.locals.token = decoded;
     res.locals.user = user;
 

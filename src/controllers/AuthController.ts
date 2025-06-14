@@ -46,6 +46,27 @@ export async function createUser(
 
     await prisma.user.assignRole(user.id, 'User');
 
+    const { code, token: verificationToken } = await prisma.user.generateVerificationToken(user);
+
+    if (!verificationToken) {
+      throw new ApiException('Failed to generate verification token', 500);
+    }
+
+    const url = `${process.env.FRONTEND_URL}/verify-email/${verificationToken.id}`;
+
+    MailService.send({
+      to: user.email,
+      subject: 'Email Verification',
+      html: `Hello ${user.name},
+      
+      Please verify your email by clicking the link below:
+      ${url}
+      
+      <strong>Verification Code:</strong> ${code}
+      <br>
+      <small>Note: This link is valid for 1 hour.</small>`,
+    });
+
     const token = await TokenService.generateUserToken(user);
 
     res.cookie('accessToken', token, {
@@ -62,12 +83,135 @@ export async function createUser(
         user: {
           name: user.name,
           email: user.email,
+          isVerified: user.isVerified,
         },
         token,
+        url,
       },
     });
   } catch (error) {
     return next(error);
+  }
+}
+
+export async function getVerifyEmail(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { id } = req.params;
+    const { user } = res.locals;
+
+    const verificationToken = await prisma.userVerification.findFirst({
+      where: {
+        id: id,
+        userId: user.id,
+        expiresAt: {
+          gte: new Date(),
+        },
+      },
+    });
+
+    if (!verificationToken) {
+      throw new ApiException('Invalid or expired verification token', 404);
+    }
+
+    if (user.isVerified) {
+      throw new ApiException('User is already verified', 400);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Verification token is valid',
+      data: {
+        email: user.email,
+        name: user.name,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function regenerateVerificationToken(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { user } = res.locals;
+
+    if (user.isVerified) {
+      throw new ApiException('User is already verified', 400);
+    }
+
+    const { code, token: verificationToken } = await prisma.user.generateVerificationToken(user);
+
+    if (!verificationToken) {
+      throw new ApiException('Failed to generate verification token', 500);
+    }
+
+    const url = `${process.env.FRONTEND_URL}/verify-email/${verificationToken.id}`;
+
+    MailService.send({
+      to: user.email,
+      subject: 'Email Verification',
+      html: `Hello ${user.name},
+      
+      Please verify your email by clicking the link below:
+      ${url}
+      
+      <strong>Verification Code:</strong> ${code}
+      <br>
+      <small>Note: This link is valid for 1 hour.</small>`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Verification token regenerated successfully',
+      data: {
+        url,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function verifyEmail(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { id: tokenId } = req.params;
+    const { user } = res.locals;
+    const { code } = req.body;
+
+    if (user.isVerified) {
+      throw new ApiException('User is already verified', 400);
+    }
+
+    const verify = await prisma.user.verifyToken(user, tokenId, code);
+
+    if (!verify) {
+      throw new ApiException('Invalid or expired verification token', 404);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Email verified successfully',
+      data: {
+        user: {
+          name: user.name,
+          email: user.email,
+          isVerified: true,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
   }
 }
 
@@ -94,13 +238,6 @@ export async function loginUser(
     }
 
     if (user.disabled) {
-      throw new ApiException(
-        'Your account is disabled please contact Administrator.',
-        429,
-      );
-    }
-
-    if (!user.disabled) {
       throw new ApiException(
         'Your account is temporarily disabled, Please reset password to continue.',
         400,
@@ -129,6 +266,7 @@ export async function loginUser(
         user: {
           name: user.name,
           email: user.email,
+          isVerified: user.isVerified,
         },
         token,
       },
