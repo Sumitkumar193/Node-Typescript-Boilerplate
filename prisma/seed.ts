@@ -53,11 +53,13 @@ async function main() {
         name: user.name,
         password: user.password,
         email: user.email,
+        isVerified: true,
       },
       create: {
         name: user.name,
         email: user.email,
         password: user.password,
+        isVerified: true,
       },
     });
 

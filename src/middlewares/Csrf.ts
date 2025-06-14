@@ -14,7 +14,9 @@ export function AttachCsrf(req: Request, res: Response): void {
   res.status(200).json({
     success: true,
     message: 'CSRF token issued',
-    token: req.csrfToken(),
+    data: {
+      token: req.csrfToken(),
+    },
   });
 }
 

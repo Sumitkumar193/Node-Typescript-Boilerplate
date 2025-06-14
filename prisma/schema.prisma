@@ -35,18 +35,33 @@ model UserRole {
 }
 
 model User {
-  id            Int             @id @default(autoincrement())
-  email         String          @unique
-  name          String?
-  password      String
-  disabled      Boolean         @default(false)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  UserTokens    UserToken[]
-  UserRoles     UserRole[]
-  PasswordReset PasswordReset[]
+  id                 Int               @id @default(autoincrement())
+  email              String            @unique
+  name               String?
+  password           String
+  isVerified         Boolean           @default(false)
+  disabled           Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  UserTokens         UserToken[]
+  UserRoles          UserRole[]
+  PasswordReset      PasswordReset[]
+  userVerificationId String?           @unique
+  UserVerification   UserVerification? @relation(fields: [userVerificationId], references: [id])
 
   @@index([email, disabled])
+}
+
+model UserVerification {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User?
+
+  @@index([token])
 }
 
 model UserToken {

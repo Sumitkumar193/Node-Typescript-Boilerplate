@@ -7,6 +7,7 @@ import logger from 'morgan';
 import helmet from 'helmet';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
+import csrf from 'csurf';
 
 import Socket from './services/Socket';
 import ApiException from './errors/ApiException';
@@ -55,6 +56,7 @@ app.use(session({
   },
 }));
 
+const csrfProtection = csrf();
 
 const limit = RateLimit({
   windowMs: 60 * 1000,
@@ -77,7 +79,7 @@ app.use((req, res, next) => {
   return VerifyCsrf(req, res, next);
 });
 
-app.get('/api/keep-alive', AttachCsrf);
+app.get('/api/keep-alive', csrfProtection, AttachCsrf);
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
 
@@ -87,6 +89,7 @@ const fallback: ErrorRequestHandler = (err, _req, res, _next) => {
     return res.status(err.status).json({
       success: false,
       message: err.message,
+      data: err.data,
     });
   }
 

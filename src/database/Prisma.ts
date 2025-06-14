@@ -7,6 +7,7 @@ import {
   PaginationParams,
   PaginatedResponse,
 } from '../interfaces/AppCommonInterface';
+import UserModel from './Extensions/UserModel';
 
 const prisma = new PrismaClient().$extends({
   query: {
@@ -77,41 +78,7 @@ const prisma = new PrismaClient().$extends({
         };
       },
     },
-    user: {
-      async assignRole(userId: number, roleName: string) {
-        const role = await prisma.role.findUnique({
-          where: { name: roleName },
-        });
-
-        if (!role) {
-          throw new Error(`Role ${roleName} not found`);
-        }
-
-        const userRole = await prisma.userRole.create({
-          data: {
-            userId,
-            roleId: role.id,
-          },
-          include: { Role: true },
-        });
-
-        return userRole;
-      },
-      async hasRole(userId: number, roleNames: string[]) {
-        const userRole = await prisma.userRole.findFirst({
-          where: {
-            userId,
-            Role: {
-              name: {
-                in: roleNames,
-              },
-            },
-          },
-          include: { Role: true },
-        });
-        return !!userRole;
-      },
-    },
+    user: UserModel,
   },
 });
 
