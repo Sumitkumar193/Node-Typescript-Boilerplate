@@ -6,15 +6,17 @@ export default class MailService {
 
   static init() {
     if (!MailService.instance) {
-      const options: SMTPTransport.Options = {}
-      if (process.env.MAIL_SERVICE == 'sendgrid') {
+      const options: SMTPTransport.Options = {};
+      if (process.env.MAIL_SERVICE === 'sendgrid') {
         options.service = process.env.MAIL_SERVICE;
-      } else if (process.env.MAIL_SERVICE == 'smtp') {
+      } else if (process.env.MAIL_SERVICE === 'smtp') {
         options.host = process.env.MAIL_HOST;
         options.port = parseInt(process.env.MAIL_PORT ?? '587', 10);
         options.secure = process.env.MAIL_SECURE === 'true';
       } else {
-        return console.error('Mail service is not configured properly. Please set MAIL_SERVICE to either "sendgrid" or "smtp".');
+        return console.error(
+          'Mail service is not configured properly. Please set MAIL_SERVICE to either "sendgrid" or "smtp".',
+        );
       }
 
       const transporter = Mailer.createTransport({

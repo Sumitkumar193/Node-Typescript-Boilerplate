@@ -2,17 +2,17 @@ import { NextFunction, Request, Response } from 'express';
 import { User } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import ApiException from '../errors/ApiException';
-import prisma from '../database/Prisma';
+import ApiException from '@errors/ApiException';
+import prisma from '@database/Prisma';
 import {
   createUserValidation,
   forgotPasswordValidation,
   loginValidation,
   passwordResetValidation,
-} from '../validations/UserValidation';
-import validate from '../services/ValidationService';
-import TokenService from '../services/TokenService';
-import MailService from '../services/MailService';
+} from '@validations/UserValidation';
+import validate from '@services/ValidationService';
+import TokenService from '@services/TokenService';
+import MailService from '@services/MailService';
 
 export async function createUser(
   req: Request,
@@ -46,7 +46,8 @@ export async function createUser(
 
     await prisma.user.assignRole(user.id, 'User');
 
-    const { code, token: verificationToken } = await prisma.user.generateVerificationToken(user);
+    const { code, token: verificationToken } =
+      await prisma.user.generateVerificationToken(user);
 
     if (!verificationToken) {
       throw new ApiException('Failed to generate verification token', 500);
@@ -105,7 +106,7 @@ export async function getVerifyEmail(
 
     const verificationToken = await prisma.userVerification.findFirst({
       where: {
-        id: id,
+        id,
         userId: user.id,
         expiresAt: {
           gte: new Date(),
@@ -146,7 +147,8 @@ export async function regenerateVerificationToken(
       throw new ApiException('User is already verified', 400);
     }
 
-    const { code, token: verificationToken } = await prisma.user.generateVerificationToken(user);
+    const { code, token: verificationToken } =
+      await prisma.user.generateVerificationToken(user);
 
     if (!verificationToken) {
       throw new ApiException('Failed to generate verification token', 500);
@@ -211,7 +213,7 @@ export async function verifyEmail(
       },
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
 
@@ -314,7 +316,7 @@ export async function forgotPassword(req: Request, res: Response) {
     const emailData = {
       to: user.email,
       subject: 'Forgot Password',
-      message: `Hello ${user.name},
+      html: `Hello ${user.name},
       We have received an request to change password for account.
       Note: If you have not requested for this kindly ignore this email.
       
@@ -349,34 +351,32 @@ export async function getResetPasswordEmail(req: Request, res: Response) {
       10,
     ); // in minutes
 
-    const userEmail = await prisma.user.findFirst({
+    const passwordReset = await prisma.passwordReset.findFirst({
       where: {
-        PasswordReset: {
-          some: {
-            AND: {
-              disabled: false,
-              token: id,
-              createdAt: {
-                gte: new Date(Date.now() - passwordValidFor * 60 * 1000),
-              },
-            },
+        token: id,
+        disabled: false,
+        createdAt: {
+          gte: new Date(Date.now() - passwordValidFor * 60 * 1000),
+        },
+      },
+      include: {
+        user: {
+          select: {
+            email: true,
+            name: true,
           },
         },
       },
-      select: {
-        email: true,
-      },
     });
 
-    if (!userEmail) {
+    if (!passwordReset) {
       throw new ApiException('Password reset token is invalid or expired', 404);
     }
 
     return res.status(200).json({
       success: true,
-      data: {
-        email: userEmail.email,
-      },
+      message: 'Password reset token is valid',
+      data: passwordReset.user,
     });
   } catch (error) {
     if (error instanceof ApiException) {
@@ -402,23 +402,17 @@ export async function resetPassword(
       10,
     ); // in minutes
 
-    const passwordResetToken = await prisma.user.findFirst({
+    const passwordReset = await prisma.passwordReset.findFirst({
       where: {
-        PasswordReset: {
-          some: {
-            AND: {
-              disabled: false,
-              token: id,
-              createdAt: {
-                gte: new Date(Date.now() - passwordValidFor * 60 * 1000),
-              },
-            },
-          },
+        token: id,
+        disabled: false,
+        createdAt: {
+          gte: new Date(Date.now() - passwordValidFor * 60 * 1000),
         },
       },
     });
 
-    if (!passwordResetToken) {
+    if (!passwordReset) {
       throw new ApiException('Password reset token is invalid or expired', 404);
     }
 
@@ -435,7 +429,7 @@ export async function resetPassword(
 
     await prisma.user.update({
       where: {
-        id: passwordResetToken.id,
+        id: passwordReset.userId,
       },
       data: {
         disabled: false,
@@ -443,7 +437,7 @@ export async function resetPassword(
       },
     });
 
-    await prisma.passwordReset.updateMany({
+    await prisma.passwordReset.update({
       where: {
         token: id,
       },

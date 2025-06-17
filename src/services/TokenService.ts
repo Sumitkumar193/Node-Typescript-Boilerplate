@@ -1,8 +1,8 @@
 import { User, UserToken } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
-import prisma from '../database/Prisma';
-import { JwtToken } from '../interfaces/AppCommonInterface';
+import prisma from '@database/Prisma';
+import { JwtToken } from '@interfaces/AppCommonInterface';
 
 class TokenService {
   static generateUserToken = async (user: User): Promise<string> => {

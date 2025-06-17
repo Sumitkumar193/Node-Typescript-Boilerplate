@@ -1,4 +1,4 @@
-import { where, orderBy, include, select } from './PrismaInterfaces';
+import { where, orderBy, include, select } from '@interfaces/PrismaInterfaces';
 
 export interface JwtToken {
   id: number;

@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import { Prisma, User } from '@prisma/client';
-import ApiException from '../errors/ApiException';
-import prisma from '../database/Prisma';
-import TokenService from '../services/TokenService';
+import ApiException from '@errors/ApiException';
+import prisma from '@database/Prisma';
+import TokenService from '@services/TokenService';
 
 export async function getUsers(
   req: Request,

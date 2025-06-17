@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import RateLimit from 'express-rate-limit';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import prisma from '../database/Prisma';
+import prisma from '@database/Prisma';
 
 const MAX_ATTEMPTS = parseInt(process.env.LOGIN_THRESHOLD ?? '10', 10);
 

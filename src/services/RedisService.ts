@@ -1,6 +1,6 @@
 import Redis from 'ioredis';
 import Valkey from 'iovalkey';
-import AppException from '../errors/AppException';
+import AppException from '@errors/AppException';
 
 class Client {
   private static instance: Redis | Valkey;

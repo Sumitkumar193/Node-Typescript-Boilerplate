@@ -1,10 +1,10 @@
 import { Server, Socket as ISocket } from 'socket.io';
 import { Server as IServer } from 'node:http';
 import { Role, User } from '@prisma/client';
-import AppException from '../errors/AppException';
-import TokenService from './TokenService';
-import prisma from '../database/Prisma';
-import validateOrigin from './CorsService';
+import AppException from '@errors/AppException';
+import TokenService from '@services/TokenService';
+import prisma from '@database/Prisma';
+import validateOrigin from '@services/CorsService';
 
 /**
  * @class Socket

@@ -9,14 +9,14 @@ import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import csrf from 'csurf';
 
-import Socket from './services/Socket';
-import ApiException from './errors/ApiException';
-import RedisService from './services/RedisService';
-import MailService from './services/MailService';
-import validateOrigin from './services/CorsService';
-import UserRoutes from './routes/UserRoutes';
-import AuthRoutes from './routes/AuthRoutes';
-import { AttachCsrf, VerifyCsrf } from './middlewares/Csrf';
+import Socket from '@services/Socket';
+import ApiException from '@errors/ApiException';
+import RedisService from '@services/RedisService';
+import MailService from '@services/MailService';
+import validateOrigin from '@services/CorsService';
+import UserRoutes from '@routes/UserRoutes';
+import AuthRoutes from '@routes/AuthRoutes';
+import { AttachCsrf, VerifyCsrf } from '@middlewares/Csrf';
 
 dotenv.config();
 RedisService.init();
@@ -44,17 +44,20 @@ app.use(cors(corsOptions));
 app.use(helmet());
 app.use(express.json());
 app.use(cookieParser());
-app.use(session({
-  secret: process.env.SESSION_SECRET ?? 'super_secret',
-  resave: false,
-  saveUninitialized: true,
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none') ?? 'lax',
-    maxAge: parseInt(process.env.COOKIE_TTL ?? '86400', 10) * 1000,
-  },
-}));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET ?? 'super_secret',
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite:
+        (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none') ?? 'lax',
+      maxAge: parseInt(process.env.COOKIE_TTL ?? '86400', 10) * 1000,
+    },
+  }),
+);
 
 const csrfProtection = csrf();
 

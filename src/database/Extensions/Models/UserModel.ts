@@ -1,8 +1,8 @@
 import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
-import prisma from '../Prisma';
+import prisma from '@database/Prisma';
 import { User } from '@prisma/client';
-import ApiException from '../../errors/ApiException';
+import ApiException from '@errors/ApiException';
 
 async function assignRole(userId: number, roleName: string) {
   const role = await prisma.role.findUnique({
@@ -60,7 +60,7 @@ async function generateVerificationToken(user: User) {
             expiresAt,
           },
         },
-      }
+      },
     },
     include: {
       UserVerification: true,
@@ -112,4 +112,4 @@ export default {
   hasRole,
   generateVerificationToken,
   verifyToken,
-}
+};

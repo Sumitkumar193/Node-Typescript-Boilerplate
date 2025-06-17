@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { User } from '@prisma/client';
-import ApiException from '../errors/ApiException';
-import prisma from '../database/Prisma';
+import ApiException from '@errors/ApiException';
+import prisma from '@database/Prisma';
 
 const UNAUTHORIZED_MESSAGE = 'Unauthorized';
 const FORBIDDEN_MESSAGE = 'Access Denied';

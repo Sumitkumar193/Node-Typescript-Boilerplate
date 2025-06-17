@@ -6,7 +6,9 @@ const csrfProtection = csrf();
 export function AttachCsrf(req: Request, res: Response): void {
   res.cookie('XSRF-TOKEN', req.csrfToken(), {
     httpOnly: false, // for JavaScript access (like Laravel)
-    sameSite: (process.env.COOKIE_SAME_SITE as any) ?? 'lax',
+    sameSite:
+      (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none' | undefined) ??
+      'lax',
     secure: process.env.NODE_ENV === 'production',
     maxAge: parseInt(process.env.COOKIE_TTL ?? '86400', 10) * 1000,
   });
@@ -21,13 +23,13 @@ export function AttachCsrf(req: Request, res: Response): void {
 }
 
 export function VerifyCsrf(req: Request, res: Response, next: NextFunction) {
-  return csrfProtection(req, res, (err: any) => {
+  return csrfProtection(req, res, (err: Error | unknown) => {
     if (err) {
       return res.status(403).json({
         success: false,
         message: 'Invalid or missing CSRF token',
       });
     }
-    next();
+    return next();
   });
 }

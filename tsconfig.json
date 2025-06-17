@@ -1,13 +1,26 @@
 {
   "include": ["src/**/*", "types/**/*.d.ts"],
   "compilerOptions": {
-      "outDir": "./dist",
-      "target": "esnext",                                 
-      "module": "commonjs",
-      "resolveJsonModule": true,                            
-      "esModuleInterop": true,                            
-      "forceConsistentCasingInFileNames": true,            
-      "strict": true,                                      
-      "skipLibCheck": true                              
+    "outDir": "./dist",
+    "target": "esnext",
+    "module": "commonjs",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@controllers/*": ["src/controllers/*"],
+      "@database/*": ["src/database/*"],
+      "@errors/*": ["src/errors/*"],
+      "@interfaces/*": ["src/interfaces/*"],
+      "@middlewares/*": ["src/middlewares/*"],
+      "@routes/*": ["src/routes/*"],
+      "@services/*": ["src/services/*"],
+      "@types/*": ["types/*"],
+      "@validations/*": ["src/validations/*"],
     }
+  }
 }

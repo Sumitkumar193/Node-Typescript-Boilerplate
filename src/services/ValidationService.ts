@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { JoiValidationErrors } from '../interfaces/AppCommonInterface';
+import { JoiValidationErrors } from '@interfaces/AppCommonInterface';
 
 export default function validate<T>(
   schema: Joi.ObjectSchema,

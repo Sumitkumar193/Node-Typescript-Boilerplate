@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import ApiException from '../errors/ApiException';
-import AppException from '../errors/AppException';
-import { JwtToken } from '../interfaces/AppCommonInterface';
-import prisma from '../database/Prisma';
+import ApiException from '@errors/ApiException';
+import AppException from '@errors/AppException';
+import { JwtToken } from '@interfaces/AppCommonInterface';
+import prisma from '@database/Prisma';
 
 const UNAUTHORIZED_MESSAGE = 'Unauthorized';
 
@@ -52,6 +52,10 @@ export default async function Authenticate(
 
     if (!user) {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
+    }
+
+    if (user.disabled) {
+      throw new ApiException('User account is disabled.', 403);
     }
 
     if (!user.isVerified && req.path.includes('/auth/verify')) {

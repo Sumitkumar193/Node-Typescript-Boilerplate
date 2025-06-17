@@ -1,13 +1,13 @@
-import { PrismaClient } from '@prisma/client';
-import {
-  where as whereArgs,
-  findManyArgs,
-} from '../interfaces/PrismaInterfaces';
+import { PrismaClient, User } from '@prisma/client';
+import { where as whereArgs, findManyArgs } from '@interfaces/PrismaInterfaces';
 import {
   PaginationParams,
   PaginatedResponse,
-} from '../interfaces/AppCommonInterface';
-import UserModel from './Extensions/UserModel';
+} from '@interfaces/AppCommonInterface';
+import UserModel from '@database/Extensions/Models/UserModel';
+import RedisService from '@services/RedisService';
+
+const svc = RedisService.getInstance();
 
 const prisma = new PrismaClient().$extends({
   query: {
@@ -32,6 +32,39 @@ const prisma = new PrismaClient().$extends({
         console.log(`Operation: ${operation} on model: ${model}`, args);
 
         // Call the original query
+        return query(args);
+      },
+    },
+    user: {
+      async findUnique({ args, query }) {
+        const { where } = args;
+        const cacheKey = `user:${where.id}`;
+        const exists = await svc.exists(cacheKey);
+
+        let user: User | null = null;
+        if (exists) {
+          const cachedUser = await svc.get(cacheKey);
+          user = cachedUser ? JSON.parse(cachedUser) : null;
+        } else {
+          const fetchedUser = await query(args);
+          user = fetchedUser as User | null;
+          if (user) {
+            await svc.set(cacheKey, JSON.stringify(user));
+          }
+        }
+
+        return user;
+      },
+      async update({ args, query }) {
+        const { where } = args;
+        const cacheKey = `user:${where.id}`;
+        await svc.del(cacheKey);
+        return query(args);
+      },
+      async delete({ args, query }) {
+        const { where } = args;
+        const cacheKey = `user:${where.id}`;
+        await svc.del(cacheKey);
         return query(args);
       },
     },
