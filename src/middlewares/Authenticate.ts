@@ -46,7 +46,16 @@ export default async function Authenticate(
     const user = await prisma.user.findUnique({
       where: { id: tokenRecord.userId, disabled: false },
       include: {
-        UserRoles: true,
+        UserRoles: {
+          select: {
+            Role: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 

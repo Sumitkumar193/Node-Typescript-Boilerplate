@@ -49,8 +49,10 @@ class Socket {
       this.idSocketMap.set(socket.id, socket);
       socket.join('public');
 
-      const handleAuth = async (): Promise<User | null> => {
-        const token = socket.handshake.headers.cookie?.split('accessToken=')[1];
+      const handleAuth = async (
+        accessToken?: string | undefined,
+      ): Promise<User | null> => {
+        const token = !!accessToken ? accessToken : socket.handshake.headers.cookie?.split('accessToken=')[1];
         if (!token) return null;
 
         const user = await TokenService.getUserFromToken(token);
@@ -61,15 +63,18 @@ class Socket {
         return null;
       };
 
-      socket.on('identify', async () => {
-        const user = await handleAuth();
-        if (user) {
-          this.io.to(user.id.toString()).emit('identified', {
-            name: user.name,
-            email: user.email,
-          });
-        }
-      });
+      socket.on(
+        'identify',
+        async ({ accessToken }: { accessToken?: string }) => {
+          const user = await handleAuth(accessToken);
+          if (user) {
+            this.io.to(user.id.toString()).emit('identified', {
+              name: user.name,
+              email: user.email,
+            });
+          }
+        },
+      );
 
       socket.on('disconnect', () => {
         this.idSocketMap.get(socket.id)?.leave('public');

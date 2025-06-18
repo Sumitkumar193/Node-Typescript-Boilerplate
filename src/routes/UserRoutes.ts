@@ -6,10 +6,10 @@ import Paginate from '@middlewares/Pagination';
 
 const UserRoutes = Router();
 
-UserRoutes.get('/users', Authenticate, HasRole('Admin'), Paginate, getUsers);
-UserRoutes.get('/users/:id', Authenticate, getUser);
+UserRoutes.get('/', Authenticate, HasRole('Admin'), Paginate, getUsers);
+UserRoutes.get('/:id', Authenticate, getUser);
 UserRoutes.post(
-  '/users/:id/disable',
+  '/:id/disable',
   Authenticate,
   HasRole('Admin'),
   disableUser,

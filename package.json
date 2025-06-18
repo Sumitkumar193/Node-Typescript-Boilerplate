@@ -10,7 +10,7 @@
     "lint": "prettier --write \"src/**/*.{ts,tsx}\" && eslint \"src/**/*.{ts,tsx}\""
   },
   "prisma": {
-    "seed": "ts-node ./prisma/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register ./prisma/seed.ts"
   },
   "keywords": [],
   "author": "",

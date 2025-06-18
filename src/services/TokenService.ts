@@ -70,17 +70,23 @@ class TokenService {
         process.env.JWT_SECRET as string,
       ) as JwtToken;
 
-      const userWithToken = await prisma.userToken.findUnique({
-        where: {
-          id: data.id,
-          disabled: false,
-        },
+      const tokenRecord = await prisma.userToken.findUnique({
+        where: { id: data.id },
+      });
+
+      if (!tokenRecord || tokenRecord.disabled) {
+        return null;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: tokenRecord.userId, disabled: false },
         include: {
-          User: {
-            include: {
-              UserRoles: {
-                include: {
-                  Role: true,
+          UserRoles: {
+            select: {
+              Role: {
+                select: {
+                  id: true,
+                  name: true,
                 },
               },
             },
@@ -88,7 +94,7 @@ class TokenService {
         },
       });
 
-      return userWithToken?.User ?? null;
+      return user ?? null;
     } catch (error) {
       console.error('Error verifying token:', error);
       return null;
