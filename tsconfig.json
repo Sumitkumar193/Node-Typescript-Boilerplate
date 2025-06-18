@@ -19,7 +19,7 @@
       "@middlewares/*": ["src/middlewares/*"],
       "@routes/*": ["src/routes/*"],
       "@services/*": ["src/services/*"],
-      "@types/*": ["types/*"],
+      "@customTypes/*": ["types/*"],
       "@validations/*": ["src/validations/*"],
     }
   }
