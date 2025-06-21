@@ -8,7 +8,7 @@ const FORBIDDEN_MESSAGE = 'Access Denied';
 export default function HasRole(...roleNames: string[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { user } = res.locals as { user: UserWithRoles } ;
+      const { user } = res.locals as { user: UserWithRoles };
       if (!user) {
         throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
       }
@@ -19,7 +19,7 @@ export default function HasRole(...roleNames: string[]) {
         user.UserRoles.some(
           (userRole) =>
             userRole.Role &&
-            allowedRoles.includes(userRole.Role.name.toLowerCase())
+            allowedRoles.includes(userRole.Role.name.toLowerCase()),
         );
 
       if (!hasAnyRole) {

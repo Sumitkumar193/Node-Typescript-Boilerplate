@@ -17,6 +17,7 @@ import validateOrigin from '@services/CorsService';
 import UserRoutes from '@routes/UserRoutes';
 import AuthRoutes from '@routes/AuthRoutes';
 import { AttachCsrf, VerifyCsrf } from '@middlewares/Csrf';
+import SocketUWS from './services/uSocket';
 
 dotenv.config();
 RedisService.init();
@@ -112,7 +113,11 @@ const PORT = process.env.PORT ?? 3005;
 
 const server = createServer(app);
 
-Socket.init(server);
+if (String(process.env.SOCKET_DRIVER).toLowerCase() === 'uwebsocket') {
+  SocketUWS.init();
+} else {
+  Socket.init(server);
+}
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
