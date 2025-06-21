@@ -8,11 +8,6 @@ const UserRoutes = Router();
 
 UserRoutes.get('/', Authenticate, HasRole('Admin'), Paginate, getUsers);
 UserRoutes.get('/:id', Authenticate, getUser);
-UserRoutes.post(
-  '/:id/disable',
-  Authenticate,
-  HasRole('Admin'),
-  disableUser,
-);
+UserRoutes.post('/:id/disable', Authenticate, HasRole('Admin'), disableUser);
 
 export default UserRoutes;

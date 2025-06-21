@@ -1,10 +1,14 @@
 import { Prisma, Role, User, UserRole } from '@prisma/client';
 import { JwtToken, Pagination } from '@interfaces/AppCommonInterface';
 
+export type UserWithRoles = User & {
+  UserRoles: Array<UserRole & { Role: Role }>;
+};
+
 declare namespace Express {
     export interface Response {
         locals: {
-            user?: User & { UserRoles: { Role: Role }[] };
+            user?: UserWithRoles;
             token?: JwtToken;
             pagination?: Pagination;
         };

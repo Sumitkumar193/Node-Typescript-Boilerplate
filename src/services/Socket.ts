@@ -52,7 +52,9 @@ class Socket {
       const handleAuth = async (
         accessToken?: string | undefined,
       ): Promise<User | null> => {
-        const token = !!accessToken ? accessToken : socket.handshake.headers.cookie?.split('accessToken=')[1];
+        const token =
+          accessToken ??
+          socket.handshake.headers.cookie?.split('accessToken=')[1];
         if (!token) return null;
 
         const user = await TokenService.getUserFromToken(token);
