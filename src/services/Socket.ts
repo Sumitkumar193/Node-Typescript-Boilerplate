@@ -31,6 +31,10 @@ class Socket {
 
   private static userSocketIdMap: Map<number, Set<string>> = new Map();
 
+  private static roomMembers: Map<string, Set<number>> = new Map();
+  
+  private static startedRooms: Set<string> = new Set();
+
   static init(server: IServer) {
     this.io = new Server(server, {
       cors: {
@@ -49,6 +53,9 @@ class Socket {
       this.idSocketMap.set(socket.id, socket);
       socket.join('public');
 
+      let currentUser: User | null = null;
+      let authenticated = false;
+
       const handleAuth = async (
         accessToken?: string | undefined,
       ): Promise<User | null> => {
@@ -60,9 +67,23 @@ class Socket {
         const user = await TokenService.getUserFromToken(token);
         if (user) {
           this.addUserToRoom(user, socket.id);
+          currentUser = user;
+          authenticated = true;
           return user;
         }
         return null;
+      };
+
+      // Require authentication before any conference actions
+      const requireAuth = async (cb: Function) => {
+        if (!authenticated) {
+          await handleAuth();
+        }
+        if (!authenticated || !currentUser) {
+          socket.emit('auth-required');
+          return false;
+        }
+        return cb();
       };
 
       socket.on(
@@ -74,9 +95,73 @@ class Socket {
               name: user.name,
               email: user.email,
             });
+          } else {
+            socket.emit('auth-required');
           }
         },
       );
+
+      // Invite a user to a started room
+      socket.on('invite-user', ({ roomId, userId }) => {
+        requireAuth(() => {
+          if (!Socket.startedRooms.has(roomId)) return;
+          const members = Socket.roomMembers.get(roomId);
+          if (!members || !members.has(currentUser!.id)) return;
+          if (!Socket.roomMembers.has(roomId)) Socket.roomMembers.set(roomId, new Set());
+          Socket.roomMembers.get(roomId)?.add(userId);
+          // Optionally notify the invited user
+          this.io.to(userId.toString()).emit('invited-to-room', { roomId });
+        });
+      });
+
+      // Modified join-room logic
+      socket.on('join-room', async ({ roomId }) => {
+        requireAuth(() => {
+          let members = Socket.roomMembers.get(roomId);
+          if (!Socket.startedRooms.has(roomId)) {
+            // Room not started: allow anyone to join and start the room
+            if (!members) {
+              members = new Set();
+              Socket.roomMembers.set(roomId, members);
+            }
+            members.add(currentUser!.id);
+            Socket.startedRooms.add(roomId);
+            socket.join(roomId);
+            socket.to(roomId).emit('user-joined', { socketId: socket.id });
+          } else {
+            if (members && members.has(currentUser!.id)) {
+              socket.join(roomId);
+              socket.to(roomId).emit('user-joined', { socketId: socket.id });
+            } else {
+              socket.emit('join-room-denied', { roomId, reason: 'Not invited' });
+            }
+          }
+        });
+      });
+
+      socket.on('offer', ({ targetSocketId, offer }) => {
+        requireAuth(() => {
+          socket.to(targetSocketId).emit('offer', { socketId: socket.id, offer });
+        });
+      });
+
+      socket.on('answer', ({ targetSocketId, answer }) => {
+        requireAuth(() => {
+          socket.to(targetSocketId).emit('answer', { socketId: socket.id, answer });
+        });
+      });
+
+      socket.on('ice-candidate', ({ targetSocketId, candidate }) => {
+        requireAuth(() => {
+          socket.to(targetSocketId).emit('ice-candidate', { socketId: socket.id, candidate });
+        });
+      });
+
+      socket.on('disconnecting', () => {
+        socket.rooms.forEach((roomId) => {
+          socket.to(roomId).emit('user-left', { socketId: socket.id });
+        });
+      });
 
       socket.on('disconnect', () => {
         this.idSocketMap.get(socket.id)?.leave('public');
