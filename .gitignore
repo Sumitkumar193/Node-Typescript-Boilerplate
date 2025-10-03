@@ -2,7 +2,3 @@
 node_modules
 dist
 storage
-# Ignore all files in prisma folder except schema.prisma
-prisma/*
-!prisma/schema.prisma
-!prisma/seed.ts
