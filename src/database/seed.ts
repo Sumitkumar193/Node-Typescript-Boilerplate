@@ -2,18 +2,14 @@ import bcryptjs from 'bcryptjs';
 import prisma from '@database/Prisma';
 
 async function main() {
-  const rolesData = [{ name: 'User' }, { name: 'Hospital' }, { name: 'Admin' }];
+  const rolesData = [{ name: 'User' }, { name: 'Organization' }, { name: 'Admin' }];
 
   await prisma.role.createMany({
     data: rolesData,
     skipDuplicates: true,
   });
 
-  const roles = await prisma.role.findMany();
-  const RoleIdMap = new Map<string, number>();
-  roles.forEach((role) => {
-    RoleIdMap.set(role.name, role.id);
-  });
+  const createdRoles = await prisma.role.findMany();
 
   // Create users and attach roles via UserRole
   const users = [
@@ -24,13 +20,13 @@ async function main() {
       roleName: 'Admin',
     },
     {
-      name: 'Moderator User',
-      email: 'moderator@example.com',
+      name: 'Hospital User',
+      email: 'hospital@example.com',
       password: await bcryptjs.hash('Moderator123!', 10),
-      roleName: 'Moderator',
+      roleName: 'Organization',
     },
     {
-      name: 'Regular User',
+      name: 'Patient User',
       email: 'user@example.com',
       password: await bcryptjs.hash('User123!', 10),
       roleName: 'User',
@@ -45,15 +41,14 @@ async function main() {
         password: user.password,
         email: user.email,
         isVerified: true,
+        roleId: createdRoles.find(r => r.name === user.roleName)!.id,
       },
       create: {
         name: user.name,
         email: user.email,
         password: user.password,
         isVerified: true,
-        Role: {
-          connect: { name: user.roleName },
-        },
+        roleId: createdRoles.find(r => r.name === user.roleName)!.id,
       },
     }),
   );
