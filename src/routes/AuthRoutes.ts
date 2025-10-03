@@ -2,6 +2,7 @@ import { Router } from 'express';
 import Authenticate from '@middlewares/Authenticate';
 import {
   loginUser,
+  createInvite,
   createUser,
   getVerifyEmail,
   verifyEmail,
@@ -14,10 +15,14 @@ import {
   resetPassword,
 } from '@controllers/AuthController';
 import LoginRateLimiter from '@middlewares/LoginRateLimiter';
+import HasRole from '@middlewares/HasRole';
+import { OrganizationUploadFields } from '@middlewares/Upload';
 
 const AuthRoutes = Router();
 
 AuthRoutes.post('/login', LoginRateLimiter, loginUser);
+AuthRoutes.post('/invite', Authenticate, HasRole('Admin'), createInvite);
+AuthRoutes.post('/invite/:code', OrganizationUploadFields, createUser);
 AuthRoutes.post('/register', createUser);
 
 AuthRoutes.get('/verify/:id', Authenticate, getVerifyEmail);

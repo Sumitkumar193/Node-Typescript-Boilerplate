@@ -11,7 +11,6 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
       "@controllers/*": ["src/controllers/*"],
       "@database/*": ["src/database/*"],
       "@errors/*": ["src/errors/*"],
@@ -20,7 +19,7 @@
       "@routes/*": ["src/routes/*"],
       "@services/*": ["src/services/*"],
       "@customTypes/*": ["types/*"],
-      "@validations/*": ["src/validations/*"],
+      "@validations/*": ["src/validations/*"]
     }
   }
 }

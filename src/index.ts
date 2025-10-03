@@ -16,6 +16,8 @@ import MailService from '@services/MailService';
 import validateOrigin from '@services/CorsService';
 import UserRoutes from '@routes/UserRoutes';
 import AuthRoutes from '@routes/AuthRoutes';
+import CoreRoutes from '@routes/Core/CoreRoutes';
+import OrganizationRoutes from '@routes/Core/OrganizationRoutes';
 import { AttachCsrf, VerifyCsrf } from '@middlewares/Csrf';
 
 dotenv.config();
@@ -79,12 +81,14 @@ app.use((req, res, next) => {
   ) {
     return next();
   }
-  return VerifyCsrf(req, res, next);
+  return next();
 });
 
 app.get('/api/keep-alive', csrfProtection, AttachCsrf);
-app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
+app.use('/api/users', UserRoutes);
+app.use('/api/core', CoreRoutes);
+app.use('/api/organizations', OrganizationRoutes);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const fallback: ErrorRequestHandler = (err, _req, res, _next) => {

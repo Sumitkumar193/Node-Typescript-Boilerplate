@@ -5,6 +5,7 @@ import AppException from '@errors/AppException';
 import TokenService from '@services/TokenService';
 import prisma from '@database/Prisma';
 import validateOrigin from '@services/CorsService';
+import { UserWithRoles } from '@interfaces/AppCommonInterface';
 
 /**
  * @class Socket
@@ -51,8 +52,10 @@ class Socket {
 
       const handleAuth = async (
         accessToken?: string | undefined,
-      ): Promise<User | null> => {
-        const token = !!accessToken ? accessToken : socket.handshake.headers.cookie?.split('accessToken=')[1];
+      ): Promise<UserWithRoles | null> => {
+        const token =
+          accessToken ??
+          socket.handshake.headers.cookie?.split('accessToken=')[1];
         if (!token) return null;
 
         const user = await TokenService.getUserFromToken(token);
@@ -124,17 +127,17 @@ class Socket {
    */
   static async emitToRole<T>(role: Role, event: string, data: T) {
     // Fix: select userId, not id, from userRole
-    const userRoles = await prisma.userRole.findMany({
+    const users = await prisma.user.findMany({
       where: {
         roleId: role.id,
       },
       select: {
-        userId: true,
+        id: true,
       },
     });
 
-    userRoles.forEach((userRole) => {
-      this.io.to(userRole.userId.toString()).emit(event, data);
+    users.forEach((user) => {
+      this.io.to(user.id.toString()).emit(event, data);
     });
   }
 
@@ -152,7 +155,7 @@ class Socket {
    * @param {User} user - User data
    * @param {string} socketId - Socket id
    */
-  private static addUserToRoom(user: User, socketId: string): void {
+  private static addUserToRoom(user: UserWithRoles, socketId: string): void {
     try {
       const userId = user.id;
       const socket = this.idSocketMap.get(socketId);

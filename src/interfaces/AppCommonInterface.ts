@@ -1,4 +1,5 @@
 import { where, orderBy, include, select } from '@interfaces/PrismaInterfaces';
+import { Prisma } from '@prisma/client';
 
 export interface JwtToken {
   id: number;
@@ -35,3 +36,16 @@ export interface JoiValidationErrors {
   hasError: boolean;
   errors: Record<string, string>;
 }
+
+export type UserWithRoles = Prisma.UserGetPayload<{
+  omit: { password: true };
+  include: {
+    Role: true;
+    OrganizationMember: true;
+  };
+}>;
+
+export type StorageParams = {
+  storagePath: string;
+  fileType: 'PUBLIC' | 'PRIVATE';
+};

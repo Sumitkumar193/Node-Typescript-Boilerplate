@@ -15,7 +15,8 @@ export default async function Authenticate(
   try {
     const token =
       req.cookies?.accessToken ||
-      req.header('Authorization')?.replace('Bearer ', '');
+      req.header('Authorization')?.replace('Bearer ', '') ||
+      req.query?.accessToken;
 
     // If token is not provided
     if (!token) {
@@ -46,16 +47,8 @@ export default async function Authenticate(
     const user = await prisma.user.findUnique({
       where: { id: tokenRecord.userId, disabled: false },
       include: {
-        UserRoles: {
-          select: {
-            Role: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
+        Role: true,
+        OrganizationMember: true,
       },
     });
 

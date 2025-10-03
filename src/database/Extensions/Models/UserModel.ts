@@ -1,8 +1,7 @@
-import bcrypt from 'bcrypt';
-import crypto from 'node:crypto';
 import prisma from '@database/Prisma';
 import { User } from '@prisma/client';
 import ApiException from '@errors/ApiException';
+import AuthService from '@services/AuthService';
 
 async function assignRole(userId: number, roleName: string) {
   const role = await prisma.role.findUnique({
@@ -13,10 +12,12 @@ async function assignRole(userId: number, roleName: string) {
     throw new Error(`Role ${roleName} not found`);
   }
 
-  const userRole = await prisma.userRole.create({
+  const userRole = await prisma.user.update({
+    where: { id: userId },
     data: {
-      userId,
-      roleId: role.id,
+      Role: {
+        connect: { id: role.id },
+      },
     },
     include: { Role: true },
   });
@@ -24,10 +25,10 @@ async function assignRole(userId: number, roleName: string) {
   return userRole;
 }
 
-async function hasRole(userId: number, roleNames: string[]) {
-  const userRole = await prisma.userRole.findFirst({
+async function hasRole(userId: number, ...roleNames: string[]) {
+  const userRole = await prisma.user.findFirst({
     where: {
-      userId,
+      id: userId,
       Role: {
         name: {
           in: roleNames,
@@ -40,71 +41,24 @@ async function hasRole(userId: number, roleNames: string[]) {
 }
 
 async function generateVerificationToken(user: User) {
-  const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 1);
-  const code = crypto.randomBytes(16).toString('hex').slice(0, 6).toUpperCase();
-  const encryptdToken = await bcrypt.hash(code, 10);
-
-  const token = await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      UserVerification: {
-        upsert: {
-          create: {
-            userId: user.id,
-            token: encryptdToken,
-            expiresAt: expiresAt.toISOString(),
-          },
-          update: {
-            token: encryptdToken,
-            expiresAt,
-          },
-        },
-      },
-    },
-    include: {
-      UserVerification: true,
-    },
-  });
+  const { code, token } = await AuthService.generateVerificationToken(user);
 
   return {
     code,
-    token: token.UserVerification,
+    token,
   };
 }
 
 async function verifyToken(user: User, tokenId: string, code: string) {
-  const verification = await prisma.userVerification.findFirst({
-    where: {
-      id: tokenId,
-      expiresAt: {
-        gte: new Date(),
-      },
-    },
-  });
+  const isValidToken = await AuthService.validateToken(tokenId);
 
-  if (!verification) {
+  if (!isValidToken) {
     throw new ApiException('Invalid or expired verification token', 400);
   }
 
-  const isValid = await bcrypt.compare(code, verification.token);
+  const verification = await AuthService.verifyToken(tokenId, code);
 
-  if (!isValid) {
-    throw new ApiException('Invalid verification token', 400);
-  }
-
-  if (isValid) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { isVerified: true },
-    });
-
-    await prisma.userVerification.delete({
-      where: { id: verification.id },
-    });
-  }
-
-  return !!verification;
+  return verification.success;
 }
 
 export default {

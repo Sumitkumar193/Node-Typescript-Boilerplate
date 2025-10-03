@@ -1,12 +1,8 @@
 import bcryptjs from 'bcryptjs';
-import prisma from '../src/database/Prisma';
+import prisma from '@database/Prisma';
 
 async function main() {
-  const rolesData = [
-    { name: 'User' },
-    { name: 'Moderator' },
-    { name: 'Admin' },
-  ];
+  const rolesData = [{ name: 'User' }, { name: 'Hospital' }, { name: 'Admin' }];
 
   await prisma.role.createMany({
     data: rolesData,
@@ -41,13 +37,8 @@ async function main() {
     },
   ];
 
-  for (const user of users) {
-    const role = RoleIdMap.get(user.roleName);
-    if (!role) {
-      console.error(`Role ${user.roleName} not found`);
-      continue;
-    }
-    const userCreate = await prisma.user.upsert({
+  const promises = users.map((user) =>
+    prisma.user.upsert({
       where: { email: user.email },
       update: {
         name: user.name,
@@ -60,33 +51,14 @@ async function main() {
         email: user.email,
         password: user.password,
         isVerified: true,
+        Role: {
+          connect: { name: user.roleName },
+        },
       },
-    });
+    }),
+  );
 
-    const userRole = await prisma.userRole.findFirst({
-      where: {
-        userId: userCreate.id,
-        roleId: role,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    await prisma.userRole.upsert({
-      where: {
-        id: userRole ? userRole.id : -1, // Use a non-existent ID to force creation if not found
-      },
-      update: {
-        userId: userCreate.id,
-        roleId: role,
-      },
-      create: {
-        userId: userCreate.id,
-        roleId: role,
-      },
-    });
-  }
+  await Promise.all(promises);
 
   console.log('Database seeding completed successfully!');
 }
@@ -94,7 +66,6 @@ async function main() {
 main()
   .catch((e) => {
     console.error('Error seeding database:', e);
-    process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
