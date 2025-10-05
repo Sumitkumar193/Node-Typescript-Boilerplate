@@ -1,9 +1,6 @@
+import { Field } from 'multer';
 import { Prisma, Role, User, UserRole } from '@prisma/client';
-import { JwtToken, Pagination } from '@interfaces/AppCommonInterface';
-
-export type UserWithRoles = User & {
-  UserRoles: Array<UserRole & { Role: Role }>;
-};
+import { JwtToken, Pagination, UserWithRoles } from '@interfaces/AppCommonInterface';
 
 declare namespace Express {
     export interface Response {
@@ -11,6 +8,7 @@ declare namespace Express {
             user?: UserWithRoles;
             token?: JwtToken;
             pagination?: Pagination;
+            uploadFields?: Field[];
         };
     }
 

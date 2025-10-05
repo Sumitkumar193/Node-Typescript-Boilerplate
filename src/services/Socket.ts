@@ -5,6 +5,7 @@ import AppException from '@errors/AppException';
 import TokenService from '@services/TokenService';
 import prisma from '@database/Prisma';
 import validateOrigin from '@services/CorsService';
+import { UserWithRoles } from '@interfaces/AppCommonInterface';
 
 /**
  * @class Socket
@@ -32,7 +33,7 @@ class Socket {
   private static userSocketIdMap: Map<number, Set<string>> = new Map();
 
   private static roomMembers: Map<string, Set<number>> = new Map();
-  
+
   private static startedRooms: Set<string> = new Set();
 
   static init(server: IServer) {
@@ -53,12 +54,12 @@ class Socket {
       this.idSocketMap.set(socket.id, socket);
       socket.join('public');
 
-      let currentUser: User | null = null;
+      let currentUser: UserWithRoles | null = null;
       let authenticated = false;
 
       const handleAuth = async (
         accessToken?: string | undefined,
-      ): Promise<User | null> => {
+      ): Promise<UserWithRoles | null> => {
         const token =
           accessToken ??
           socket.handshake.headers.cookie?.split('accessToken=')[1];
@@ -75,7 +76,7 @@ class Socket {
       };
 
       // Require authentication before any conference actions
-      const requireAuth = async (cb: Function) => {
+      const requireAuth = async (cb: () => void) => {
         if (!authenticated) {
           await handleAuth();
         }
@@ -107,7 +108,8 @@ class Socket {
           if (!Socket.startedRooms.has(roomId)) return;
           const members = Socket.roomMembers.get(roomId);
           if (!members || !members.has(currentUser!.id)) return;
-          if (!Socket.roomMembers.has(roomId)) Socket.roomMembers.set(roomId, new Set());
+          if (!Socket.roomMembers.has(roomId))
+            Socket.roomMembers.set(roomId, new Set());
           Socket.roomMembers.get(roomId)?.add(userId);
           // Optionally notify the invited user
           this.io.to(userId.toString()).emit('invited-to-room', { roomId });
@@ -128,32 +130,39 @@ class Socket {
             Socket.startedRooms.add(roomId);
             socket.join(roomId);
             socket.to(roomId).emit('user-joined', { socketId: socket.id });
+          } else if (members && members.has(currentUser!.id)) {
+            socket.join(roomId);
+            socket.to(roomId).emit('user-joined', { socketId: socket.id });
           } else {
-            if (members && members.has(currentUser!.id)) {
-              socket.join(roomId);
-              socket.to(roomId).emit('user-joined', { socketId: socket.id });
-            } else {
-              socket.emit('join-room-denied', { roomId, reason: 'Not invited' });
-            }
+            socket.emit('join-room-denied', {
+              roomId,
+              reason: 'Not invited',
+            });
           }
         });
       });
 
       socket.on('offer', ({ targetSocketId, offer }) => {
         requireAuth(() => {
-          socket.to(targetSocketId).emit('offer', { socketId: socket.id, offer });
+          socket
+            .to(targetSocketId)
+            .emit('offer', { socketId: socket.id, offer });
         });
       });
 
       socket.on('answer', ({ targetSocketId, answer }) => {
         requireAuth(() => {
-          socket.to(targetSocketId).emit('answer', { socketId: socket.id, answer });
+          socket
+            .to(targetSocketId)
+            .emit('answer', { socketId: socket.id, answer });
         });
       });
 
       socket.on('ice-candidate', ({ targetSocketId, candidate }) => {
         requireAuth(() => {
-          socket.to(targetSocketId).emit('ice-candidate', { socketId: socket.id, candidate });
+          socket
+            .to(targetSocketId)
+            .emit('ice-candidate', { socketId: socket.id, candidate });
         });
       });
 
@@ -211,17 +220,19 @@ class Socket {
    */
   static async emitToRole<T>(role: Role, event: string, data: T) {
     // Fix: select userId, not id, from userRole
-    const userRoles = await prisma.userRole.findMany({
-      where: {
-        roleId: role.id,
-      },
-      select: {
-        userId: true,
+    const userRoles = await prisma.role.findUnique({
+      where: { id: role.id },
+      include: {
+        User: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
 
-    userRoles.forEach((userRole) => {
-      this.io.to(userRole.userId.toString()).emit(event, data);
+    userRoles?.User.forEach((user) => {
+      this.io.to(user.id.toString()).emit(event, data);
     });
   }
 
@@ -239,7 +250,7 @@ class Socket {
    * @param {User} user - User data
    * @param {string} socketId - Socket id
    */
-  private static addUserToRoom(user: User, socketId: string): void {
+  private static addUserToRoom(user: UserWithRoles, socketId: string): void {
     try {
       const userId = user.id;
       const socket = this.idSocketMap.get(socketId);

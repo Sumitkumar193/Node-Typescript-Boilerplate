@@ -15,9 +15,13 @@ class Client {
         }${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`;
 
         if (process.env.CACHE_DRIVER === 'redis') {
-          Client.instance = new Redis(buildUrl);
+          Client.instance = new Redis(buildUrl, {
+            maxRetriesPerRequest: null,
+          });
         } else if (process.env.CACHE_DRIVER === 'valkey') {
-          Client.instance = new Valkey(buildUrl);
+          Client.instance = new Valkey(buildUrl, {
+            maxRetriesPerRequest: null,
+          });
         } else {
           throw new AppException('Cache driver not supported', 500);
         }

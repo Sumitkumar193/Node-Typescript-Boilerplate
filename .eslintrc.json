@@ -4,7 +4,11 @@
 	"rules": {
 		"no-console": "off",
 		"no-underscore-dangle": "off",
+		"no-await-in-loop": "off",
+		"prefer-destructuring": "off",
+		"no-continue": "off",
 		"no-shadow": "off",
+		"no-restricted-syntax": "off",
 		"@typescript-eslint/no-shadow": "warn",
 		"import/extensions": [
 			"error",

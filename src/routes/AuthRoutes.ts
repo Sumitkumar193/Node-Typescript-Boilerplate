@@ -13,6 +13,7 @@ import {
   getResetPasswordEmail,
   resetPassword,
 } from '@controllers/AuthController';
+import { getProfile } from '@controllers/UserController';
 import LoginRateLimiter from '@middlewares/LoginRateLimiter';
 
 const AuthRoutes = Router();
@@ -27,6 +28,8 @@ AuthRoutes.put('/verify/regenerate', Authenticate, regenerateVerificationToken);
 AuthRoutes.post('/forgot-password', forgotPassword);
 AuthRoutes.get('/forgot-password/:id', getResetPasswordEmail);
 AuthRoutes.post('/forgot-password/:id', resetPassword);
+
+AuthRoutes.get('/me', Authenticate, getProfile);
 
 AuthRoutes.post('/logout', Authenticate, logoutUser);
 AuthRoutes.post('/logout/:id', Authenticate, logoutFromDevice);

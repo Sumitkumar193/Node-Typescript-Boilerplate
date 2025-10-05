@@ -1,50 +1,35 @@
-# ----------- Stage 1: Builder -----------
-FROM node:20-alpine AS builder
+# Use official Node.js 20 image
+FROM node:20
 
 WORKDIR /app
 
-# Install deps: build tools, Python, OpenSSL (required by Prisma & bcrypt)
-RUN apk add --no-cache \
-  openssl \
-  python3 \
-  make \
-  g++ \
-  libc6-compat
+# Copy package files
+COPY package.json package-lock.json* ./
 
-# Install all node modules including dev
-COPY package*.json ./
+# Install all dependencies (including dev dependencies for build)
 RUN npm install
+
+# Install global dependencies
+RUN npm install -g pm2
 
 # Copy source code
 COPY . .
 
-# Generate Prisma client
+# Copy public assets
+COPY public ./public
+
+# Convert line endings and make deploy.sh executable (handles Windows line endings)
+RUN sed -i 's/\r$//' deploy.sh && chmod +x deploy.sh
+
+# Run Prisma generate
 RUN npx prisma generate
 
 # Build TypeScript
 RUN npm run build
 
+# Expose port (from .env or default 3000)
+EXPOSE ${PORT}
+EXPOSE ${SOCKET_PORT}
 
-# ----------- Stage 2: Production -----------
-FROM node:20-alpine
-
-WORKDIR /app
-
-# Install only runtime deps
-RUN apk add --no-cache openssl
-
-# Copy production-only files
-COPY package*.json ./
-RUN npm install --production
-
-# Copy built output & runtime files
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/deploy.sh ./deploy.sh
-
-RUN chmod +x deploy.sh
-
-ENV PORT=3000
-EXPOSE 3000
-
+# Execute deploy.sh script
 ENTRYPOINT ["./deploy.sh"]

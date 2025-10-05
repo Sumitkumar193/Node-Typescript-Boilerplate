@@ -3,6 +3,7 @@ import TokenService from '@services/TokenService';
 import prisma from '@database/Prisma';
 import validateOrigin from '@services/CorsService';
 import { User, Role } from '@prisma/client';
+import { UserWithRoles } from '@interfaces/AppCommonInterface';
 
 /**
  * @class SocketUWS
@@ -107,13 +108,18 @@ class SocketUWS {
       },
     });
 
-    this.app.listen(parseInt(process.env.SOCKET_PORT as string, 10), (token) => {
-      if (token) {
-        console.log(`uWebSockets.js server started on port ${process.env.SOCKET_PORT}`);
-      } else {
-        console.error('Failed to start uWebSockets.js server');
-      }
-    });
+    this.app.listen(
+      parseInt(process.env.SOCKET_PORT as string, 10),
+      (token) => {
+        if (token) {
+          console.log(
+            `uWebSockets.js server started on port ${process.env.SOCKET_PORT}`,
+          );
+        } else {
+          console.error('Failed to start uWebSockets.js server');
+        }
+      },
+    );
   }
 
   private static async handleMessage<T>(
@@ -162,7 +168,7 @@ class SocketUWS {
   private static async handleAuth(
     ws: uWS.WebSocket<unknown>,
     accessToken?: string,
-  ): Promise<User | null> {
+  ): Promise<UserWithRoles | null> {
     if (!accessToken) return null;
 
     try {
@@ -180,7 +186,10 @@ class SocketUWS {
     return null;
   }
 
-  private static addUserSocket(user: User, ws: uWS.WebSocket<unknown>) {
+  private static addUserSocket(
+    user: UserWithRoles,
+    ws: uWS.WebSocket<unknown>,
+  ) {
     const userId = user.id;
 
     // Remove from previous user if already mapped
@@ -284,15 +293,21 @@ class SocketUWS {
     binary: boolean = false,
   ) {
     try {
-      const userRoles = await prisma.userRole.findMany({
-        where: { roleId: role.id },
-        select: { userId: true },
+      const userRoles = await prisma.role.findUnique({
+        where: { id: role.id },
+        include: {
+          User: {
+            select: {
+              id: true,
+            },
+          },
+        },
       });
 
       const message = { event, ...data };
 
-      userRoles.forEach((userRole) => {
-        const sockets = this.userSocketMap.get(userRole.userId);
+      userRoles?.User.forEach((user) => {
+        const sockets = this.userSocketMap.get(user.id);
         if (sockets) {
           sockets.forEach((ws) => this.sendMessage(ws, message, binary));
         }

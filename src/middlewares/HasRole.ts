@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import ApiException from '@errors/ApiException';
-import { UserWithRoles } from '@customTypes/custom';
+import { UserWithRoles } from '@interfaces/AppCommonInterface';
 
 const UNAUTHORIZED_MESSAGE = 'Unauthorized';
 const FORBIDDEN_MESSAGE = 'Access Denied';
@@ -13,14 +13,9 @@ export default function HasRole(...roleNames: string[]) {
         throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
       }
 
-      const allowedRoles = roleNames.map((r) => r.toLowerCase());
-      const hasAnyRole =
-        Array.isArray(user.UserRoles) &&
-        user.UserRoles.some(
-          (userRole) =>
-            userRole.Role &&
-            allowedRoles.includes(userRole.Role.name.toLowerCase()),
-        );
+      const hasAnyRole = roleNames
+        .map((r) => r.toLowerCase())
+        .includes(user.Role.name.toLowerCase());
 
       if (!hasAnyRole) {
         throw new ApiException(FORBIDDEN_MESSAGE, 403);

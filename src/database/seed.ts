@@ -1,11 +1,12 @@
 import bcryptjs from 'bcryptjs';
-import prisma from '../src/database/Prisma';
+import prisma from '@database/Prisma';
 
 async function main() {
   const rolesData = [
     { name: 'User' },
     { name: 'Moderator' },
     { name: 'Admin' },
+    { name: 'SuperAdmin' },
   ];
 
   await prisma.role.createMany({
@@ -28,6 +29,12 @@ async function main() {
       roleName: 'Admin',
     },
     {
+      name: 'SuperAdmin User',
+      email: 'super@example.com',
+      password: await bcryptjs.hash('SuperAdmin123!', 10),
+      roleName: 'SuperAdmin',
+    },
+    {
       name: 'Moderator User',
       email: 'moderator@example.com',
       password: await bcryptjs.hash('Moderator123!', 10),
@@ -47,43 +54,21 @@ async function main() {
       console.error(`Role ${user.roleName} not found`);
       continue;
     }
-    const userCreate = await prisma.user.upsert({
+    await prisma.user.upsert({
       where: { email: user.email },
       update: {
         name: user.name,
         password: user.password,
         email: user.email,
+        roleId: role,
         isVerified: true,
       },
       create: {
         name: user.name,
         email: user.email,
         password: user.password,
+        roleId: role,
         isVerified: true,
-      },
-    });
-
-    const userRole = await prisma.userRole.findFirst({
-      where: {
-        userId: userCreate.id,
-        roleId: role,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    await prisma.userRole.upsert({
-      where: {
-        id: userRole ? userRole.id : -1, // Use a non-existent ID to force creation if not found
-      },
-      update: {
-        userId: userCreate.id,
-        roleId: role,
-      },
-      create: {
-        userId: userCreate.id,
-        roleId: role,
       },
     });
   }
@@ -98,4 +83,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    process.exit(0);
   });

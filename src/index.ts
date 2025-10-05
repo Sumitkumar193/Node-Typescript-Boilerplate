@@ -5,23 +5,33 @@ import { createServer } from 'node:http';
 import dotenv from 'dotenv';
 import logger from 'morgan';
 import helmet from 'helmet';
-import session from 'express-session';
-import cookieParser from 'cookie-parser';
-import csrf from 'csurf';
+import Sentry from '@sentry/node';
 
 import Socket from '@services/Socket';
 import ApiException from '@errors/ApiException';
 import RedisService from '@services/RedisService';
 import MailService from '@services/MailService';
+import BullMQService from '@services/BullMQService';
 import validateOrigin from '@services/CorsService';
 import UserRoutes from '@routes/UserRoutes';
 import AuthRoutes from '@routes/AuthRoutes';
-import { AttachCsrf, VerifyCsrf } from '@middlewares/Csrf';
 import SocketUWS from './services/uSocket';
 
 dotenv.config();
 RedisService.init();
 MailService.init();
+
+const dsn = process.env.SENTRY_DSN;
+if (dsn && dsn.length > 0) {
+  Sentry.init({
+    dsn,
+    tracesSampleRate: 1.0,
+    sendDefaultPii: true,
+    environment: process.env.NODE_ENV,
+    serverName: process.env.APP_NAME || 'Node-Typescript-Boilerplate',
+    includeServerName: true,
+  });
+}
 
 const app = express();
 
@@ -34,33 +44,17 @@ const corsOptions: CorsOptions = {
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-TOKEN'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 };
 
 // ----- Global Middlewares -----
 app.use(express.static('public'));
+app.use('/storage', express.static('storage'));
 app.use(logger('dev'));
 app.use(cors(corsOptions));
 app.use(helmet());
 app.use(express.json());
-app.use(cookieParser());
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET ?? 'super_secret',
-    resave: false,
-    saveUninitialized: true,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite:
-        (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none') ?? 'lax',
-      maxAge: parseInt(process.env.COOKIE_TTL ?? '86400', 10) * 1000,
-    },
-  }),
-);
-
-const csrfProtection = csrf();
 
 const limit = RateLimit({
   windowMs: 60 * 1000,
@@ -70,25 +64,33 @@ const limit = RateLimit({
 
 app.use('/api/', limit);
 
-app.use((req, res, next) => {
-  if (
-    req.method === 'GET' ||
-    req.method === 'HEAD' ||
-    req.method === 'OPTIONS' ||
-    req.path.startsWith('/public') ||
-    req.path === '/api/keep-alive'
-  ) {
-    return next();
-  }
-  return VerifyCsrf(req, res, next);
-});
-
-app.get('/api/keep-alive', csrfProtection, AttachCsrf);
+app.get('/api/keep-alive', (req, res) =>
+  res.status(200).json({ success: true, message: 'Keep alive' }),
+);
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const fallback: ErrorRequestHandler = (err, _req, res, _next) => {
+const fallback: ErrorRequestHandler = (err, req, res, _next) => {
+  if (Sentry.isInitialized()) {
+    Sentry.captureException(
+      {
+        ...err,
+        message: `${process.env.APP_NAME || 'Node-Typescript-Boilerplate'} : ${err.message}`,
+      },
+      {
+        extra: {
+          user: res.locals.user,
+          data: {
+            body: req.body,
+            params: req.params,
+            query: req.query,
+          },
+        },
+      },
+    );
+  }
+
   if (err instanceof ApiException) {
     return res.status(err.status).json({
       success: false,
@@ -118,6 +120,24 @@ if (String(process.env.SOCKET_DRIVER).toLowerCase() === 'uwebsocket') {
 } else {
   Socket.init(server);
 }
+
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  await BullMQService.shutdown();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully');
+  await BullMQService.shutdown();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

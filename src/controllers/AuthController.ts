@@ -13,6 +13,8 @@ import {
 import validate from '@services/ValidationService';
 import TokenService from '@services/TokenService';
 import MailService from '@services/MailService';
+import { JwtToken, UserWithRoles } from '@interfaces/AppCommonInterface';
+import AuthService from '@services/AuthService';
 
 export async function createUser(
   req: Request,
@@ -46,36 +48,9 @@ export async function createUser(
 
     await prisma.user.assignRole(user.id, 'User');
 
-    const { code, token: verificationToken } =
-      await prisma.user.generateVerificationToken(user);
-
-    if (!verificationToken) {
-      throw new ApiException('Failed to generate verification token', 500);
-    }
-
-    const url = `${process.env.FRONTEND_URL}/verify-email/${verificationToken.id}`;
-
-    MailService.send({
-      to: user.email,
-      subject: 'Email Verification',
-      html: `Hello ${user.name},
-      
-      Please verify your email by clicking the link below:
-      ${url}
-      
-      <strong>Verification Code:</strong> ${code}
-      <br>
-      <small>Note: This link is valid for 1 hour.</small>`,
-    });
+    const { url } = await prisma.user.generateVerificationToken(user);
 
     const token = await TokenService.generateUserToken(user);
-
-    res.cookie('accessToken', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 24,
-    });
 
     return res.status(201).json({
       success: true,
@@ -147,27 +122,7 @@ export async function regenerateVerificationToken(
       throw new ApiException('User is already verified', 400);
     }
 
-    const { code, token: verificationToken } =
-      await prisma.user.generateVerificationToken(user);
-
-    if (!verificationToken) {
-      throw new ApiException('Failed to generate verification token', 500);
-    }
-
-    const url = `${process.env.FRONTEND_URL}/verify-email/${verificationToken.id}`;
-
-    MailService.send({
-      to: user.email,
-      subject: 'Email Verification',
-      html: `Hello ${user.name},
-      
-      Please verify your email by clicking the link below:
-      ${url}
-      
-      <strong>Verification Code:</strong> ${code}
-      <br>
-      <small>Note: This link is valid for 1 hour.</small>`,
-    });
+    const { url } = await prisma.user.generateVerificationToken(user);
 
     return res.status(200).json({
       success: true,
@@ -254,13 +209,6 @@ export async function loginUser(
 
     const token = await TokenService.generateUserToken(user);
 
-    res.cookie('accessToken', token, {
-      httpOnly: true,
-      secure: (process.env.NODE_ENV as string) === 'production',
-      sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 24,
-    });
-
     return res.status(200).json({
       success: true,
       message: 'User logged in',
@@ -278,7 +226,11 @@ export async function loginUser(
   }
 }
 
-export async function forgotPassword(req: Request, res: Response) {
+export async function forgotPassword(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { email } = req.body;
 
@@ -291,12 +243,10 @@ export async function forgotPassword(req: Request, res: Response) {
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      throw new ApiException(
-        'Password reset request has been processed successfully.',
-        200,
-        null,
-        true,
-      );
+      return res.status(200).json({
+        success: true,
+        message: 'Password reset request has been processed successfully',
+      });
     }
 
     if (user.disabled) {
@@ -306,61 +256,53 @@ export async function forgotPassword(req: Request, res: Response) {
       );
     }
 
+    const { code: token, expiresAt } = await AuthService.generateCode(32);
+
     const passwordResetToken = await prisma.passwordReset.create({
       data: {
         userId: user.id,
-        token: crypto.randomBytes(32).toString('hex'),
+        token,
+        expiresAt,
       },
     });
 
-    const emailData = {
+    await MailService.send({
       to: user.email,
       subject: 'Forgot Password',
-      html: `Hello ${user.name},
-      We have received an request to change password for account.
-      Note: If you have not requested for this kindly ignore this email.
-      
-      Here is link to reset your password:
-      ${process.env.FRONTEND_URL}/forgot-password/${passwordResetToken.token}`,
-    };
-
-    await MailService.send(emailData);
+      template: 'Auth/Reset',
+      context: {
+        name: user.name,
+        url: `${process.env.FRONTEND_URL}/forgot-password/${passwordResetToken.token}`,
+      },
+    });
 
     return res.status(200).json({
       success: true,
       message: 'Password reset request has been processed successfully',
     });
   } catch (error) {
-    if (error instanceof ApiException) {
-      return res.status(error.status).json({
-        success: error.success,
-        message: error.message,
-        data: error.data,
-      });
-    }
-
-    throw error;
+    return next(error);
   }
 }
 
-export async function getResetPasswordEmail(req: Request, res: Response) {
+export async function getResetPasswordEmail(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { id } = req.params;
-    const passwordValidFor = parseInt(
-      process.env.PASSWORD_RESET_TIME ?? '120',
-      10,
-    ); // in minutes
 
     const passwordReset = await prisma.passwordReset.findFirst({
       where: {
         token: id,
         disabled: false,
-        createdAt: {
-          gte: new Date(Date.now() - passwordValidFor * 60 * 1000),
+        expiresAt: {
+          gte: new Date(),
         },
       },
       include: {
-        user: {
+        User: {
           select: {
             email: true,
             name: true,
@@ -376,16 +318,10 @@ export async function getResetPasswordEmail(req: Request, res: Response) {
     return res.status(200).json({
       success: true,
       message: 'Password reset token is valid',
-      data: passwordReset.user,
+      data: passwordReset.User,
     });
   } catch (error) {
-    if (error instanceof ApiException) {
-      return res.status(error.status).json({
-        success: error.success,
-        message: error.message,
-      });
-    }
-    throw error;
+    return next(error);
   }
 }
 
@@ -397,17 +333,13 @@ export async function resetPassword(
   try {
     const { id } = req.params;
     const { password, confirmPassword } = req.body;
-    const passwordValidFor = parseInt(
-      process.env.PASSWORD_RESET_TIME ?? '120',
-      10,
-    ); // in minutes
 
     const passwordReset = await prisma.passwordReset.findFirst({
       where: {
         token: id,
         disabled: false,
-        createdAt: {
-          gte: new Date(Date.now() - passwordValidFor * 60 * 1000),
+        expiresAt: {
+          gte: new Date(),
         },
       },
     });
@@ -461,11 +393,12 @@ export async function logoutUser(
   next: NextFunction,
 ) {
   try {
-    const { token, user } = res.locals;
+    const { token, user } = res.locals as {
+      token: JwtToken;
+      user: UserWithRoles;
+    };
 
     await TokenService.logoutUserByTokenId(token.id, user);
-
-    res.clearCookie('accessToken');
 
     return res.status(200).json({
       success: true,
@@ -482,11 +415,10 @@ export async function logoutFromDevice(
   next: NextFunction,
 ) {
   try {
-    const { id, user } = req.body;
+    const { id } = req.body;
+    const { user } = res.locals as { user: UserWithRoles };
 
     await TokenService.logoutUserByTokenId(id, user);
-
-    res.clearCookie('accessToken');
 
     return res.status(200).json({
       success: true,
@@ -506,8 +438,6 @@ export async function logoutFromAllDevices(
     const { user } = res.locals;
 
     await TokenService.logoutFromAllDevices(user);
-
-    res.clearCookie('accessToken');
 
     return res.status(200).json({
       success: true,

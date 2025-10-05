@@ -2,7 +2,7 @@ import { User, UserToken } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import prisma from '@database/Prisma';
-import { JwtToken } from '@interfaces/AppCommonInterface';
+import { JwtToken, UserWithRoles } from '@interfaces/AppCommonInterface';
 
 class TokenService {
   static generateUserToken = async (user: User): Promise<string> => {
@@ -32,12 +32,12 @@ class TokenService {
   };
 
   static logoutUserByTokenId = async (
-    id: string,
-    user: User,
+    id: number,
+    user: UserWithRoles,
   ): Promise<void> => {
     await prisma.userToken.update({
       where: {
-        id: parseInt(id, 10),
+        id,
         userId: user.id,
         disabled: false,
       },
@@ -59,7 +59,9 @@ class TokenService {
     });
   };
 
-  static getUserFromToken = async (token: string): Promise<User | null> => {
+  static getUserFromToken = async (
+    token: string,
+  ): Promise<UserWithRoles | null> => {
     try {
       if (!token) {
         return null;
@@ -81,27 +83,18 @@ class TokenService {
       const user = await prisma.user.findUnique({
         where: { id: tokenRecord.userId, disabled: false },
         include: {
-          UserRoles: {
-            select: {
-              Role: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-          },
+          Role: true,
         },
       });
 
-      return user ?? null;
+      return user;
     } catch (error) {
       console.error('Error verifying token:', error);
       return null;
     }
   };
 
-  static getUsersActiveTokens = async (user: User): Promise<UserToken[]> => {
+  static getUsersActiveTokens = async (user: UserWithRoles): Promise<UserToken[]> => {
     const activeTokens = await prisma.userToken.findMany({
       where: {
         userId: user.id,

@@ -40,10 +40,24 @@ services:
       - .env
     ports:
       - "${PORT}:${PORT}"
+      - "${SOCKET_PORT}:${SOCKET_PORT}"
     volumes:
-      - .:/app
-    command: ["node", "dist/index.js"]
+    - ./public:/usr/src/app/public   # Host bind for static assets
+    - storage:/usr/src/app/storage   # Named volume for user uploads
+
+  prisma-studio:
+    build: .
+    entrypoint: ["npx", "prisma", "studio", "--port", "5555"]
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    ports:
+      - "5555:5555"
+    volumes:
+      - .:/usr/src/app
 
 volumes:
   pgdata:
   redisdata:
+  storage:

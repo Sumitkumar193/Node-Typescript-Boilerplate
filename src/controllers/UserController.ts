@@ -3,6 +3,7 @@ import { Prisma, User } from '@prisma/client';
 import ApiException from '@errors/ApiException';
 import prisma from '@database/Prisma';
 import TokenService from '@services/TokenService';
+import { UserWithRoles } from '@interfaces/AppCommonInterface';
 
 export async function getUsers(
   req: Request,
@@ -147,35 +148,16 @@ export async function disableUser(
   }
 }
 
-export async function getProfile(req: Request, res: Response) {
+export async function getProfile(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = await prisma.user.findUnique({
-      where: {
-        id: req.body.user.id,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        disabled: true,
-        createdAt: true,
-      },
-    });
+    const { user } = res.locals as { user: UserWithRoles };
 
     return res.status(200).json({
       success: true,
-      data: {
-        user,
-      },
+      data: user,
     });
   } catch (error) {
-    if (error instanceof ApiException) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-      });
-    }
-    throw error;
+    return next(error);
   }
 }
 
@@ -185,7 +167,7 @@ export async function listTokens(
   next: NextFunction,
 ) {
   try {
-    const { user } = req.body;
+    const { user } = res.locals as { user: UserWithRoles };
 
     const UserTokens = await TokenService.getUsersActiveTokens(user);
 
