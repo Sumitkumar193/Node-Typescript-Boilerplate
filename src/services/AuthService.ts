@@ -1,9 +1,10 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcrypt';
-import { User, UserVerification } from '@prisma/client';
-import prisma from '@database/Prisma';
+import { PasswordReset, User, UserVerification } from '@prisma/client';
 import ApiException from '@errors/ApiException';
 import MailService from '@services/MailService';
+import TokenService from '@services/TokenService';
+import { TransactionContext } from '@system/TransactionContext';
 
 type GeneratedToken = { token: UserVerification; code: string; url: string };
 
@@ -27,7 +28,6 @@ class AuthService {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     const randomBytes = crypto.randomBytes(16).toString('hex');
 
-    // Apply replacements + uppercase, then slice to desired length
     const rawCode = AuthService.replaceSimilarNumberAndCharacter(randomBytes)
       .toUpperCase()
       .slice(0, length);
@@ -73,8 +73,9 @@ class AuthService {
     const { code, encryptedToken, expiresAt } =
       await AuthService.generateCode(6);
 
-    // create DB record first
-    const tokenRecord = await prisma.userVerification.upsert({
+    const client = TransactionContext.getClient();
+
+    const tokenRecord = await client.userVerification.upsert({
       where: {
         userId: user.id,
       },
@@ -91,7 +92,6 @@ class AuthService {
       },
     });
 
-    // IMPORTANT: send the DB id as tokenId (not the hash)
     const { url } = await AuthService.sendVerificationCode({
       user,
       code,
@@ -108,45 +108,58 @@ class AuthService {
       user,
     });
 
-    return {
-      token,
-      code,
-      url,
-    };
+    return { token, code, url };
   }
 
-  static async validateToken(tokenId: string): Promise<boolean> {
-    const token = await prisma.userVerification.findUnique({
-      where: { id: tokenId, disabled: false, expiresAt: { gte: new Date() } },
+  // =============================
+  // TRANSACTIONAL OPERATIONS
+  // =============================
+
+  @TransactionContext.Transactional()
+  static async registerUser(
+    name: string,
+    email: string,
+    hashedPassword: string,
+  ) {
+    const client = TransactionContext.getClient();
+
+    const user = await client.user.create({
+      data: { name, email, password: hashedPassword },
     });
-    return !!token;
+
+    await client.user.assignRole(user.id, 'User');
+    const { url } = await client.user.generateVerificationToken(user);
+    const token = await TokenService.generateUserToken(user);
+
+    return { user, url, token };
   }
 
-  static async verifyToken(tokenId: string, code: string) {
-    const validate = await AuthService.validateToken(tokenId);
+  @TransactionContext.Transactional()
+  static async verifyUserEmail(
+    user: User,
+    tokenId: string,
+    code: string,
+  ): Promise<boolean> {
+    const client = TransactionContext.getClient();
+    return client.user.verifyToken(user, tokenId, code);
+  }
 
-    if (!validate) {
-      throw new ApiException('Invalid or expired verification token', 400);
-    }
+  @TransactionContext.Transactional()
+  static async resetUserPassword(
+    passwordReset: PasswordReset,
+    hashedPassword: string,
+  ) {
+    const client = TransactionContext.getClient();
 
-    const normalizedCode = AuthService.normalizeUserCode(code);
-
-    const isValid = await bcrypt.compare(normalizedCode, code);
-
-    if (!isValid) {
-      throw new ApiException('Invalid verification code', 400);
-    }
-
-    const verification = await prisma.userVerification.update({
-      where: { id: tokenId },
-      data: {
-        disabled: true,
-        User: { update: { isVerified: true } },
-      },
-      include: { User: true },
+    await client.user.update({
+      where: { id: passwordReset.userId },
+      data: { disabled: false, password: hashedPassword },
     });
 
-    return { success: true, token: verification };
+    await client.passwordReset.update({
+      where: { id: passwordReset.id },
+      data: { disabled: true },
+    });
   }
 }
 

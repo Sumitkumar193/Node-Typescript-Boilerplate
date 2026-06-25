@@ -36,20 +36,7 @@ export async function createUser(
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user: User = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-      },
-    });
-
-    await prisma.user.assignRole(user.id, 'User');
-
-    const { url } = await prisma.user.generateVerificationToken(user);
-
-    const token = await TokenService.generateUserToken(user);
+    const { user, url, token } = await AuthService.registerUser(name, email, hashedPassword);
 
     return res.status(201).json({
       success: true,
@@ -149,7 +136,7 @@ export async function verifyEmail(
       throw new ApiException('User is already verified', 400);
     }
 
-    const verify = await prisma.user.verifyToken(user, tokenId, code);
+    const verify = await AuthService.verifyUserEmail(user, tokenId, code);
 
     if (!verify) {
       throw new ApiException('Invalid or expired verification token', 404);
@@ -357,25 +344,7 @@ export async function resetPassword(
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    await prisma.user.update({
-      where: {
-        id: passwordReset.userId,
-      },
-      data: {
-        disabled: false,
-        password: hashedPassword,
-      },
-    });
-
-    await prisma.passwordReset.update({
-      where: {
-        token: id,
-      },
-      data: {
-        disabled: true,
-      },
-    });
+    await AuthService.resetUserPassword(passwordReset, hashedPassword);
 
     return res.status(200).json({
       success: true,

@@ -23,7 +23,8 @@
       "@services/*": ["./src/services/*"],
       "@templates/*": ["./src/templates/*"],
       "@customTypes/*": ["./types/*"],
-      "@validations/*": ["./src/validations/*"]
+      "@validations/*": ["./src/validations/*"],
+      "@system/*": ["./src/system/*"]
     }
   }
 }

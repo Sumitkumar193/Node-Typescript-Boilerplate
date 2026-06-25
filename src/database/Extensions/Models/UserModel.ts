@@ -1,11 +1,13 @@
 import bcrypt from 'bcrypt';
-import prisma from '@database/Prisma';
 import { User } from '@prisma/client';
 import ApiException from '@errors/ApiException';
 import AuthService from '@services/AuthService';
+import { TransactionContext } from '@system/TransactionContext';
 
 async function assignRole(userId: number, roleName: string) {
-  const role = await prisma.role.findUnique({
+  const client = TransactionContext.getClient();
+
+  const role = await client.role.findUnique({
     where: { name: roleName },
   });
 
@@ -13,7 +15,7 @@ async function assignRole(userId: number, roleName: string) {
     throw new Error(`Role ${roleName} not found`);
   }
 
-  const userRole = await prisma.user.update({
+  const userRole = await client.user.update({
     where: { id: userId },
     data: {
       Role: {
@@ -27,7 +29,9 @@ async function assignRole(userId: number, roleName: string) {
 }
 
 async function hasRole(userId: number, roleNames: string[]): Promise<boolean> {
-  const userRole = await prisma.user.findUnique({
+  const client = TransactionContext.getClient();
+
+  const userRole = await client.user.findUnique({
     where: { id: userId },
     include: { Role: true },
   });
@@ -50,7 +54,9 @@ async function generateVerificationToken(user: User) {
 }
 
 async function verifyToken(user: User, tokenId: string, code: string) {
-  const verification = await prisma.userVerification.findFirst({
+  const client = TransactionContext.getClient();
+
+  const verification = await client.userVerification.findFirst({
     where: {
       id: tokenId,
       expiresAt: {
@@ -69,18 +75,16 @@ async function verifyToken(user: User, tokenId: string, code: string) {
     throw new ApiException('Invalid verification token', 400);
   }
 
-  if (isValid) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { isVerified: true },
-    });
+  await client.user.update({
+    where: { id: user.id },
+    data: { isVerified: true },
+  });
 
-    await prisma.userVerification.delete({
-      where: { id: verification.id },
-    });
-  }
+  await client.userVerification.delete({
+    where: { id: verification.id },
+  });
 
-  return !!verification;
+  return true;
 }
 
 export default {

@@ -3,13 +3,14 @@ import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import prisma from '@database/Prisma';
 import { JwtToken, UserWithRoles } from '@interfaces/AppCommonInterface';
+import { TransactionContext } from '@system/TransactionContext';
 
 class TokenService {
   static generateUserToken = async (user: User): Promise<string> => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 1);
 
-    const userToken = await prisma.userToken.create({
+    const userToken = await TransactionContext.getClient().userToken.create({
       data: {
         userId: user.id,
         token: crypto.randomUUID(),
@@ -35,7 +36,7 @@ class TokenService {
     id: number,
     user: UserWithRoles,
   ): Promise<void> => {
-    await prisma.userToken.update({
+    await TransactionContext.getClient().userToken.update({
       where: {
         id,
         userId: user.id,
@@ -48,7 +49,7 @@ class TokenService {
   };
 
   static logoutFromAllDevices = async (user: User): Promise<void> => {
-    await prisma.userToken.updateMany({
+    await TransactionContext.getClient().userToken.updateMany({
       where: {
         userId: user.id,
         disabled: false,
