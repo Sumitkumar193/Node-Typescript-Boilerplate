@@ -85,6 +85,7 @@ export async function getUser(req: Request, res: Response, next: NextFunction) {
       where: {
         id: parseInt(id, 10),
       },
+      omit: { password: true },
     });
 
     if (!user) {

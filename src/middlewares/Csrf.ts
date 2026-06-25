@@ -2,7 +2,10 @@ import { Request, Response, NextFunction } from 'express';
 import { doubleCsrf } from 'csrf-csrf';
 
 const { generateToken, validateRequest } = doubleCsrf({
-  getSecret: (req) => process.env.CSRF_SECRET || 'defaultSecret',
+  getSecret: () => {
+    if (!process.env.CSRF_SECRET) throw new Error('CSRF_SECRET env var is required');
+    return process.env.CSRF_SECRET;
+  },
   cookieName: 'XSRF-TOKEN',
   cookieOptions: {
     sameSite: 

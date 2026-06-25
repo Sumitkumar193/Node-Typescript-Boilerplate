@@ -26,10 +26,22 @@ if (dsn && dsn.length > 0) {
   Sentry.init({
     dsn,
     tracesSampleRate: 1.0,
-    sendDefaultPii: true,
+    sendDefaultPii: false,
     environment: process.env.NODE_ENV,
     serverName: process.env.APP_NAME || 'Node-Typescript-Boilerplate',
     includeServerName: true,
+    beforeSend(event) {
+      const data = event.extra?.data as Record<string, unknown> | undefined;
+      const body = data?.body as Record<string, unknown> | undefined;
+      if (data && body) {
+        const scrubbed = { ...body };
+        delete scrubbed.password;
+        delete scrubbed.confirmPassword;
+        delete scrubbed.currentPassword;
+        data.body = scrubbed;
+      }
+      return event;
+    },
   });
 }
 
@@ -44,7 +56,7 @@ const corsOptions: CorsOptions = {
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-xsrf-token'],
   credentials: true,
 };
 
