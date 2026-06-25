@@ -57,7 +57,6 @@ export default class MailService {
         {
           workerOptions: {
             concurrency: WORKER_CONCURRENCY,
-            connection: BullMQService.getConnection(),
           },
         },
       );

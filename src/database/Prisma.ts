@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { where as whereArgs, findManyArgs } from '@interfaces/PrismaInterfaces';
 import {
   PaginationParams,
@@ -6,7 +7,7 @@ import {
 } from '@interfaces/AppCommonInterface';
 import UserModel from '@database/Extensions/Models/UserModel';
 
-const prisma = new PrismaClient().$extends({
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) }).$extends({
   query: {
     $allModels: {
       async create({ model, operation, args, query }) {
@@ -80,3 +81,5 @@ const prisma = new PrismaClient().$extends({
 });
 
 export default prisma;
+
+export type AppPrismaClient = typeof prisma;

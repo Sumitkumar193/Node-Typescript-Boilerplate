@@ -41,6 +41,14 @@ services:
     ports:
       - "${PORT}:${PORT}"
       - "${SOCKET_PORT}:${SOCKET_PORT}"
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure  
     volumes:
     - ./public:/usr/src/app/public   # Host bind for static assets
     - storage:/usr/src/app/storage   # Named volume for user uploads

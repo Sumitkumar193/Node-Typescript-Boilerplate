@@ -23,6 +23,7 @@ type AddressComponentType = AddressType | GeocodingAddressComponentType;
 
 export default class MapsService {
   private readonly apiKey: string;
+
   private readonly client: Client;
 
   constructor() {
@@ -42,7 +43,7 @@ export default class MapsService {
       params: {
         query,
         key: this.apiKey,
-        region: 'gb'
+        region: 'gb',
       },
     });
 
@@ -129,7 +130,7 @@ export default class MapsService {
       params: {
         location: options.location,
         radius: options.radius,
-        type: options.type as any,
+        type: options.type as string,
         keyword: options.keyword,
         language: options.language || Language.en,
         key: this.apiKey,
@@ -231,9 +232,12 @@ export default class MapsService {
       useShortName = false,
     ): string | null => {
       const comp = components.find((c) =>
-        types.some((t) => c.types.includes(t as any)),
+        types.some((t) =>
+          c.types.includes(t as AddressType | GeocodingAddressComponentType),
+        ),
       );
-      return comp ? (useShortName ? comp.short_name : comp.long_name) : null;
+      if (!comp) return null;
+      return useShortName ? comp.short_name : comp.long_name;
     };
 
     const location = place.geometry?.location
@@ -254,7 +258,7 @@ export default class MapsService {
     const streetNumber = findComponent([AddressType.street_number]);
     const route = findComponent([AddressType.route]);
 
-    console.log(place)
+    console.log(place);
 
     return {
       placeId,

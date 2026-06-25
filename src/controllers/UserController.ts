@@ -148,7 +148,11 @@ export async function disableUser(
   }
 }
 
-export async function getProfile(req: Request, res: Response, next: NextFunction) {
+export async function getProfile(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { user } = res.locals as { user: UserWithRoles };
 

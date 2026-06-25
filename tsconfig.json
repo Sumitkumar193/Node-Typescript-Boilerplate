@@ -1,6 +1,7 @@
 {
-  "include": ["src/**/*", "types/**/*.d.ts"],
+  "include": ["./src/**/*", "./types/**/*.d.ts"],
   "compilerOptions": {
+    "rootDir": ".",
     "outDir": "./dist",
     "target": "esnext",
     "module": "commonjs",
@@ -9,18 +10,20 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "lib": ["ES2022"],
     "paths": {
-      "@controllers/*": ["src/controllers/*"],
-      "@database/*": ["src/database/*"],
-      "@errors/*": ["src/errors/*"],
-      "@interfaces/*": ["src/interfaces/*"],
-      "@middlewares/*": ["src/middlewares/*"],
-      "@routes/*": ["src/routes/*"],
-      "@services/*": ["src/services/*"],
-      "@templates/*": ["src/templates/*"],
-      "@customTypes/*": ["types/*"],
-      "@validations/*": ["src/validations/*"],
+      "@controllers/*": ["./src/controllers/*"],
+      "@database/*": ["./src/database/*"],
+      "@errors/*": ["./src/errors/*"],
+      "@interfaces/*": ["./src/interfaces/*"],
+      "@middlewares/*": ["./src/middlewares/*"],
+      "@routes/*": ["./src/routes/*"],
+      "@services/*": ["./src/services/*"],
+      "@templates/*": ["./src/templates/*"],
+      "@customTypes/*": ["./types/*"],
+      "@validations/*": ["./src/validations/*"]
     }
   }
 }

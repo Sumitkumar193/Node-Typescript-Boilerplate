@@ -23,7 +23,7 @@ export async function findOrCreateGoogleUser(payload: {
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({
       where: { email },
-      include: { userProfile: true },
+      include: { UserProfile: true },
     });
 
     // 1. Existing user, link Google ID if not present
@@ -36,7 +36,7 @@ export async function findOrCreateGoogleUser(payload: {
           Role: {
             connect: { name: 'User' },
           },
-          userProfile: {
+          UserProfile: {
             upsert: {
               create: { avatarUrl: picture || '' },
               update: { avatarUrl: picture || '' },
@@ -67,7 +67,7 @@ export async function findOrCreateGoogleUser(payload: {
         Role: {
           connect: { name: 'User' },
         },
-        userProfile: {
+        UserProfile: {
           create: { avatarUrl: picture || '' },
         },
       },
@@ -80,7 +80,7 @@ export async function verifyGoogleToken(token: string): Promise<User> {
     process.env.GOOGLE_CLIENT_ID || '',
     process.env.GOOGLE_ANDROID_CLIENT_ID || '',
     process.env.GOOGLE_IOS_CLIENT_ID || '',
-  ].filter(x => x.length > 0);
+  ].filter((x) => x.length > 0);
 
   const ticket = await client.verifyIdToken({
     idToken: token,

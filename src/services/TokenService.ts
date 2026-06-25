@@ -94,7 +94,9 @@ class TokenService {
     }
   };
 
-  static getUsersActiveTokens = async (user: UserWithRoles): Promise<UserToken[]> => {
+  static getUsersActiveTokens = async (
+    user: UserWithRoles,
+  ): Promise<UserToken[]> => {
     const activeTokens = await prisma.userToken.findMany({
       where: {
         userId: user.id,

@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { User } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import crypto from 'node:crypto';
 import ApiException from '@errors/ApiException';
 import prisma from '@database/Prisma';
 import {

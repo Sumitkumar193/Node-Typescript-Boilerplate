@@ -1,5 +1,6 @@
 import { Queue, Worker, Job, WorkerOptions, QueueOptions } from 'bullmq';
-import RedisClient from '@services/RedisService';
+import IORedis from 'ioredis';
+import AppException from '@errors/AppException';
 
 interface QueueSetup {
   queue: Queue;
@@ -7,7 +8,7 @@ interface QueueSetup {
 }
 
 class BullMQService {
-  private static redisConnection: RedisClient | null = null;
+  private static connection: IORedis | null = null;
 
   private static queues: Map<string, QueueSetup> = new Map();
 
@@ -20,24 +21,42 @@ class BullMQService {
       console.warn(`[BullMQ] ${message}`, ...args),
   };
 
-  static getConnection(): RedisClient {
-    if (!BullMQService.redisConnection) {
-      const connection = RedisClient.getInstance();
-      if (!connection) {
-        throw new Error('Redis connection not initialized');
+  static getConnection(): IORedis {
+    if (!BullMQService.connection) {
+      const scheme = process.env.CACHE_SECURE === 'true' ? 'rediss' : 'redis';
+      const auth =
+        process.env.REDIS_USERNAME && process.env.REDIS_PASSWORD
+          ? `${process.env.REDIS_USERNAME}:${process.env.REDIS_PASSWORD}@`
+          : '';
+      const host = process.env.REDIS_HOST;
+      const port = process.env.REDIS_PORT;
+
+      if (!host || !port) {
+        throw new AppException('REDIS_HOST and REDIS_PORT must be set', 500);
       }
-      BullMQService.redisConnection = connection;
+
+      BullMQService.connection = new IORedis(
+        `${scheme}://${auth}${host}:${port}`,
+        {
+          maxRetriesPerRequest: null, // required by BullMQ
+          enableReadyCheck: false, // required by BullMQ
+        },
+      );
+
+      BullMQService.connection.on('error', (err) => {
+        BullMQService.logger.error('Redis connection error:', err.message);
+      });
     }
 
-    return BullMQService.redisConnection;
+    return BullMQService.connection;
   }
 
   static setupQueue(
     name: string,
     processor: (job: Job) => Promise<unknown>,
     options: {
-      workerOptions?: WorkerOptions;
-      queueOptions?: QueueOptions;
+      workerOptions?: Omit<WorkerOptions, 'connection'>;
+      queueOptions?: Omit<QueueOptions, 'connection'>;
     } = {},
   ): Queue {
     if (BullMQService.queues.has(name)) {
@@ -47,9 +66,11 @@ class BullMQService {
       return BullMQService.queues.get(name)!.queue;
     }
 
+    const connection = BullMQService.getConnection();
+
     const queue = new Queue(name, {
-      connection: BullMQService.getConnection(),
       ...options.queueOptions,
+      connection,
     });
 
     const worker = new Worker(
@@ -61,28 +82,28 @@ class BullMQService {
         );
         try {
           const result = await processor(job);
-          const duration = Date.now() - startTime;
-          BullMQService.logger.info(`Job ${job.id} completed in ${duration}ms`);
+          BullMQService.logger.info(
+            `Job ${job.id} completed in ${Date.now() - startTime}ms`,
+          );
           return result;
         } catch (error) {
-          const duration = Date.now() - startTime;
           BullMQService.logger.error(
-            `Job ${job.id} failed after ${duration}ms:`,
+            `Job ${job.id} failed after ${Date.now() - startTime}ms:`,
             error,
           );
           throw error;
         }
       },
       {
-        connection: BullMQService.getConnection(),
         ...options.workerOptions,
+        connection,
       },
     );
 
     worker.on('failed', (job, err) => {
       BullMQService.logger.error(
         `Job ${job?.id} failed in queue '${name}':`,
-        err,
+        err.message,
       );
     });
 
@@ -99,8 +120,7 @@ class BullMQService {
   }
 
   static getQueue(name: string): Queue | null {
-    const setup = BullMQService.queues.get(name);
-    return setup ? setup.queue : null;
+    return BullMQService.queues.get(name)?.queue ?? null;
   }
 
   static async closeQueue(name: string): Promise<void> {
@@ -121,16 +141,16 @@ class BullMQService {
   }
 
   static async closeAllQueues(): Promise<void> {
-    const queueNames = Array.from(BullMQService.queues.keys());
-    await Promise.all(queueNames.map((name) => BullMQService.closeQueue(name)));
-    BullMQService.logger.info('All queues closed');
+    await Promise.all(
+      Array.from(BullMQService.queues.keys()).map((name) =>
+        BullMQService.closeQueue(name),
+      ),
+    );
   }
 
   static getQueueStatus(name: string) {
     const setup = BullMQService.queues.get(name);
-    if (!setup) {
-      return null;
-    }
+    if (!setup) return null;
 
     return {
       name,
@@ -144,6 +164,12 @@ class BullMQService {
 
   static async shutdown(): Promise<void> {
     await BullMQService.closeAllQueues();
+
+    if (BullMQService.connection) {
+      await BullMQService.connection.quit();
+      BullMQService.connection = null;
+    }
+
     BullMQService.logger.info('BullMQ service shut down');
   }
 }

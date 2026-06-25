@@ -11,7 +11,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Role {
@@ -29,6 +28,7 @@ model User {
   email         String          @unique
   name          String?
   password      String
+  googleId      String?         @unique
   isVerified    Boolean         @default(false)
   disabled      Boolean         @default(false)
   roleId        Int             @default(1) // Default role is 'User'
@@ -36,11 +36,23 @@ model User {
   updatedAt     DateTime        @updatedAt
   UserTokens    UserToken[]
   PasswordReset PasswordReset[]
+  UserProfile   UserProfile?
 
   Role             Role              @relation(fields: [roleId], references: [id])
   UserVerification UserVerification?
 
   @@index([email, disabled])
+}
+
+model UserProfile {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  avatarUrl String?
+  fields    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  User User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model UserVerification {
