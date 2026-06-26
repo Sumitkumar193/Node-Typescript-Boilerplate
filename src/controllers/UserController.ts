@@ -42,12 +42,12 @@ export async function getUsers(
       },
     ];
 
+    const SORTABLE = new Set(['id', 'name', 'email', 'createdAt']);
+    const dir = sortDir === 'desc' ? 'desc' : 'asc';
     let orderBy: Prisma.UserOrderByWithRelationInput = {};
 
-    if (sortBy && sortDir) {
-      orderBy = {
-        [sortBy as string]: sortDir as Prisma.SortOrder,
-      };
+    if (sortBy && SORTABLE.has(sortBy as string)) {
+      orderBy = { [sortBy as string]: dir };
     }
 
     // Use the paginate extension with proper typing
@@ -80,11 +80,16 @@ export async function getUsers(
 export async function getUser(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
+    const requestingUser = res.locals.user as UserWithRoles;
+    const targetId = parseInt(id, 10);
+
+    const isAdmin = requestingUser.Role?.name?.toLowerCase() === 'admin';
+    if (!isAdmin && requestingUser.id !== targetId) {
+      throw new ApiException('User not found', 404);
+    }
 
     const user = await prisma.user.findUnique({
-      where: {
-        id: parseInt(id, 10),
-      },
+      where: { id: targetId },
       omit: { password: true },
     });
 
@@ -94,9 +99,7 @@ export async function getUser(req: Request, res: Response, next: NextFunction) {
 
     return res.status(200).json({
       success: true,
-      data: {
-        user,
-      },
+      data: { user },
     });
   } catch (error) {
     return next(error);
@@ -128,21 +131,14 @@ export async function disableUser(
       );
     }
 
-    const user = await prisma.user.update({
-      where: {
-        id: parseInt(id, 10),
-      },
-      data: {
-        disabled: true,
-      },
+    await prisma.user.update({
+      where: { id: parseInt(id, 10) },
+      data: { disabled: true },
     });
 
     return res.status(200).json({
       success: true,
       message: 'User disabled',
-      data: {
-        user,
-      },
     });
   } catch (error) {
     return next(error);

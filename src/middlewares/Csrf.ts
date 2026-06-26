@@ -30,6 +30,8 @@ export function AttachCsrf(req: Request, res: Response): void {
     maxAge: parseInt(process.env.COOKIE_TTL ?? '86400', 10) * 1000,
   });
 
+  res.setHeader('XSRF-TOKEN', token);
+
   res.status(200).json({
     success: true,
     message: 'CSRF token issued',
@@ -40,6 +42,12 @@ export function AttachCsrf(req: Request, res: Response): void {
 }
 
 export function VerifyCsrf(req: Request, res: Response, next: NextFunction) {
+  // ponytail: Bearer-only clients (mobile) don't carry the XSRF cookie, so CSRF
+  // doesn't apply — the Authorization header itself can't be set cross-origin.
+  if (req.headers.authorization?.startsWith('Bearer ') && !req.cookies?.['XSRF-TOKEN']) {
+    return next();
+  }
+
   try {
     if (validateRequest(req)) {
       return next();

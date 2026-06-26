@@ -11,25 +11,19 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: proc
   query: {
     $allModels: {
       async create({ model, operation, args, query }) {
-        console.log(`Operation: ${operation} on model: ${model}`, args);
+        if (process.env.NODE_ENV !== 'production') console.log(`Operation: ${operation} on model: ${model}`);
         return query(args);
       },
       async createMany({ model, operation, args, query }) {
-        console.log(`Operation: ${operation} on model: ${model}`, args);
+        if (process.env.NODE_ENV !== 'production') console.log(`Operation: ${operation} on model: ${model}`);
         return query(args);
       },
       async update({ model, operation, args, query }) {
-        // Log the operation
-        console.log(`Operation: ${operation} on model: ${model}`, args);
-
-        // Call the original query
+        if (process.env.NODE_ENV !== 'production') console.log(`Operation: ${operation} on model: ${model}`);
         return query(args);
       },
       async updateMany({ model, operation, args, query }) {
-        // Log the operation
-        console.log(`Operation: ${operation} on model: ${model}`, args);
-
-        // Call the original query
+        if (process.env.NODE_ENV !== 'production') console.log(`Operation: ${operation} on model: ${model}`);
         return query(args);
       },
     },

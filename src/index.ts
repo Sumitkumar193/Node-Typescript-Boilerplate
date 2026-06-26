@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 import dotenv from 'dotenv';
 import logger from 'morgan';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import Sentry from '@sentry/node';
 
 import Socket from '@services/Socket';
@@ -32,13 +33,17 @@ if (dsn && dsn.length > 0) {
     includeServerName: true,
     beforeSend(event) {
       const data = event.extra?.data as Record<string, unknown> | undefined;
-      const body = data?.body as Record<string, unknown> | undefined;
-      if (data && body) {
-        const scrubbed = { ...body };
-        delete scrubbed.password;
-        delete scrubbed.confirmPassword;
-        delete scrubbed.currentPassword;
-        data.body = scrubbed;
+      if (data) {
+        const SCRUB = ['password', 'confirmPassword', 'currentPassword', 'code', 'token', 'email', 'name'];
+        const body = data.body as Record<string, unknown> | undefined;
+        if (body) {
+          const scrubbed = { ...body };
+          SCRUB.forEach((k) => delete scrubbed[k]);
+          data.body = scrubbed;
+        }
+        // don't forward query params or user object — may contain tokens/PII
+        delete data.query;
+        delete (event.extra as Record<string, unknown>).user;
       }
       return event;
     },
@@ -62,10 +67,12 @@ const corsOptions: CorsOptions = {
 
 // ----- Global Middlewares -----
 app.use(express.static('public'));
-app.use('/storage', express.static('storage'));
+// ponytail: /storage intentionally NOT served statically — PRIVATE files live there.
+// Serve private files through an authenticated route that calls res.sendFile().
 app.use(logger('dev'));
 app.use(cors(corsOptions));
 app.use(helmet());
+app.use(cookieParser());
 app.use(express.json());
 
 const limit = RateLimit({

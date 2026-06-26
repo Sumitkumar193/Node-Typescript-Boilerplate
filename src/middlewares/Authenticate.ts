@@ -15,8 +15,7 @@ export default async function Authenticate(
   try {
     const token =
       req.cookies?.accessToken ||
-      req.header('Authorization')?.replace('Bearer ', '') ||
-      req.query?.accessToken;
+      req.header('Authorization')?.replace('Bearer ', '');
 
     // If token is not provided
     if (!token) {
@@ -56,11 +55,7 @@ export default async function Authenticate(
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
 
-    if (user.disabled) {
-      throw new ApiException('User account is disabled.', 403);
-    }
-
-    if (!user.isVerified && req.path.includes('/auth/verify')) {
+    if (!user.isVerified && !req.originalUrl.includes('/auth/verify')) {
       throw new ApiException(
         'User account is not verified. Please verify your email.',
         403,

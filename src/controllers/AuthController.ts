@@ -61,7 +61,6 @@ export async function createUser(
           isVerified: user.isVerified,
         },
         token,
-        url,
       },
     });
   } catch (error) {
@@ -190,7 +189,7 @@ export async function loginUser(
     });
 
     if (!user) {
-      throw new ApiException('Invalid email or password', 404);
+      throw new ApiException('Invalid email or password', 401);
     }
 
     if (user.disabled) {
@@ -203,7 +202,7 @@ export async function loginUser(
     const verifyPassword = await bcrypt.compare(password, user.password);
 
     if (!verifyPassword) {
-      throw new ApiException('Invalid password', 401);
+      throw new ApiException('Invalid email or password', 401);
     }
 
     const token = await TokenService.generateUserToken(user);
@@ -249,18 +248,18 @@ export async function forgotPassword(
     }
 
     if (user.disabled) {
-      throw new ApiException(
-        'Your account is disabled please contact Administrator.',
-        400,
-      );
+      return res.status(200).json({
+        success: true,
+        message: 'Password reset request has been processed successfully',
+      });
     }
 
-    const { code: token, expiresAt } = await AuthService.generateCode(32);
+    const { code: rawToken, encryptedToken, expiresAt } = await AuthService.generateCode(32);
 
     const passwordResetToken = await prisma.passwordReset.create({
       data: {
         userId: user.id,
-        token,
+        token: encryptedToken,
         expiresAt,
       },
     });
@@ -271,7 +270,7 @@ export async function forgotPassword(
       template: 'Auth/Reset',
       context: {
         name: user.name,
-        url: `${process.env.FRONTEND_URL}/forgot-password/${passwordResetToken.token}`,
+        url: `${process.env.FRONTEND_URL}/forgot-password/${passwordResetToken.id}?token=${rawToken}`,
       },
     });
 
@@ -291,26 +290,18 @@ export async function getResetPasswordEmail(
 ) {
   try {
     const { id } = req.params;
+    const { token: rawToken } = req.query as { token: string };
 
     const passwordReset = await prisma.passwordReset.findFirst({
       where: {
-        token: id,
+        id,
         disabled: false,
-        expiresAt: {
-          gte: new Date(),
-        },
+        expiresAt: { gte: new Date() },
       },
-      include: {
-        User: {
-          select: {
-            email: true,
-            name: true,
-          },
-        },
-      },
+      include: { User: { select: { email: true, name: true } } },
     });
 
-    if (!passwordReset) {
+    if (!passwordReset || !rawToken || !(await bcrypt.compare(rawToken, passwordReset.token))) {
       throw new ApiException('Password reset token is invalid or expired', 404);
     }
 
@@ -331,19 +322,17 @@ export async function resetPassword(
 ) {
   try {
     const { id } = req.params;
-    const { password, confirmPassword } = req.body;
+    const { token: rawToken, password, confirmPassword } = req.body;
 
     const passwordReset = await prisma.passwordReset.findFirst({
       where: {
-        token: id,
+        id,
         disabled: false,
-        expiresAt: {
-          gte: new Date(),
-        },
+        expiresAt: { gte: new Date() },
       },
     });
 
-    if (!passwordReset) {
+    if (!passwordReset || !rawToken || !(await bcrypt.compare(rawToken, passwordReset.token))) {
       throw new ApiException('Password reset token is invalid or expired', 404);
     }
 
@@ -359,22 +348,13 @@ export async function resetPassword(
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await prisma.user.update({
-      where: {
-        id: passwordReset.userId,
-      },
-      data: {
-        disabled: false,
-        password: hashedPassword,
-      },
+      where: { id: passwordReset.userId },
+      data: { disabled: false, password: hashedPassword },
     });
 
     await prisma.passwordReset.update({
-      where: {
-        token: id,
-      },
-      data: {
-        disabled: true,
-      },
+      where: { id },
+      data: { disabled: true },
     });
 
     return res.status(200).json({
