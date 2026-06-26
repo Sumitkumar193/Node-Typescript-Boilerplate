@@ -54,6 +54,19 @@ async function registerAndLogin(overrides = {}) {
   if (!regRes.body || !regRes.body.data || !regRes.body.data.token) {
     throw new Error(`Registration failed: ${regRes.status} - ${JSON.stringify(regRes.body)}`);
   }
+  
+  // Automatically verify the user in tests to avoid 403 errors
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+  
+  if (user) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { isVerified: true },
+    });
+  }
+  
   return regRes.body.data.token as string;
 }
 
@@ -139,7 +152,7 @@ describe('Auth Routes (integration)', () => {
         .set('x-xsrf-token', 'test')
         .send({ email: BASE.email, password: 'wrong' })
         .expect(401);
-      expect(res.body.message).toBe('Invalid password');
+      expect(res.body.message).toBe('Invalid email or password');
     });
 
     it('returns 404 for unknown email', async () => {
@@ -147,7 +160,7 @@ describe('Auth Routes (integration)', () => {
         .post('/auth/login')
         .set('x-xsrf-token', 'test')
         .send({ email: 'nobody@example.com', password: 'x' })
-        .expect(404);
+        .expect(401);
       expect(res.body.message).toBe('Invalid email or password');
     });
 
@@ -240,28 +253,33 @@ describe('Auth Routes (integration)', () => {
         where: { email },
       });
 
+      // Clear the mock to ignore the verification email sent during registration
+      mockMailService.send.mockClear();
+
       // Trigger reset
       await request(app)
         .post('/auth/forgot-password')
         .set('x-xsrf-token', 'test')
         .send({ email });
 
-      const reset = await prisma.passwordReset.findFirst({
-        where: { userId: user!.id },
-      });
-      const token = reset!.token;
+      // Get the raw token from the email that was sent
+      expect(mockMailService.send).toHaveBeenCalledOnce();
+      const emailCall = mockMailService.send.mock.calls[0][0];
+      const url = new URL(emailCall.context.url);
+      const rawToken = url.searchParams.get('token');
+      const resetId = url.pathname.split('/').pop();
 
       // GET — check token is valid
       const getRes = await request(app)
-        .get(`/auth/forgot-password/${token}`)
+        .get(`/auth/forgot-password/${resetId}?token=${rawToken}`)
         .expect(200);
       expect(getRes.body.data.email).toBe(email);
 
       // POST — actually reset
       const postRes = await request(app)
-        .post(`/auth/forgot-password/${token}`)
+        .post(`/auth/forgot-password/${resetId}`)
         .set('x-xsrf-token', 'test')
-        .send({ password: 'NewPass456!', confirmPassword: 'NewPass456!' })
+        .send({ token: rawToken, password: 'NewPass456!', confirmPassword: 'NewPass456!' })
         .expect(200);
       expect(postRes.body.message).toMatch(/Password reset successful/);
 
@@ -271,7 +289,7 @@ describe('Auth Routes (integration)', () => {
         .set('x-xsrf-token', 'test')
         .send({ email, password: BASE.password })
         .expect(401);
-      expect(loginRes.body.message).toBe('Invalid password');
+      expect(loginRes.body.message).toBe('Invalid email or password');
 
       // New password works
       await request(app)

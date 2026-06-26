@@ -49,12 +49,20 @@ async function createUser(overrides = {}) {
     .post('/auth/register')
     .set('x-xsrf-token', 'test')
     .send(data);
-    
+
   if (!res.body || !res.body.data || !res.body.data.token) {
     throw new Error(`User creation failed: ${res.status} - ${JSON.stringify(res.body)}`);
   }
-  
+
+  // Automatically verify the user in tests to avoid 403 errors
   const user = await prisma.user.findUnique({ where: { email: data.email } });
+  if (user) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { isVerified: true },
+    });
+  }
+  
   return { token: res.body.data.token as string, user: user! };
 }
 
