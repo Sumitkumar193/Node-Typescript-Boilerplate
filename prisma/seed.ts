@@ -1,5 +1,5 @@
 import bcryptjs from 'bcryptjs';
-import prisma from '@database/Prisma';
+import prisma from '../src/database/Prisma';
 
 async function main() {
   const rolesData = [
