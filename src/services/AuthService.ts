@@ -115,39 +115,6 @@ class AuthService {
     };
   }
 
-  static async validateToken(tokenId: string): Promise<boolean> {
-    const token = await prisma.userVerification.findUnique({
-      where: { id: tokenId, disabled: false, expiresAt: { gte: new Date() } },
-    });
-    return !!token;
-  }
-
-  static async verifyToken(tokenId: string, code: string) {
-    const validate = await AuthService.validateToken(tokenId);
-
-    if (!validate) {
-      throw new ApiException('Invalid or expired verification token', 400);
-    }
-
-    const normalizedCode = AuthService.normalizeUserCode(code);
-
-    const isValid = await bcrypt.compare(normalizedCode, code);
-
-    if (!isValid) {
-      throw new ApiException('Invalid verification code', 400);
-    }
-
-    const verification = await prisma.userVerification.update({
-      where: { id: tokenId },
-      data: {
-        disabled: true,
-        User: { update: { isVerified: true } },
-      },
-      include: { User: true },
-    });
-
-    return { success: true, token: verification };
-  }
 }
 
 export default AuthService;

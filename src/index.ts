@@ -19,6 +19,11 @@ import AuthRoutes from '@routes/AuthRoutes';
 import SocketUWS from './services/uSocket';
 
 dotenv.config();
+
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET env var is required');
+}
+
 RedisService.init();
 MailService.init();
 
@@ -67,8 +72,7 @@ const corsOptions: CorsOptions = {
 
 // ----- Global Middlewares -----
 app.use(express.static('public'));
-// ponytail: /storage intentionally NOT served statically — PRIVATE files live there.
-// Serve private files through an authenticated route that calls res.sendFile().
+// /storage is NOT served statically — private files must go through an authenticated controller.
 app.use(logger('dev'));
 app.use(cors(corsOptions));
 app.use(helmet());

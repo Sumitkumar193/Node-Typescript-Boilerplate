@@ -13,18 +13,24 @@ export default async function Authenticate(
   next: NextFunction,
 ) {
   try {
-    const token =
-      req.cookies?.accessToken ||
-      req.header('Authorization')?.replace('Bearer ', '');
+    let authMethod: 'cookie' | 'bearer';
+    let rawToken: string;
 
-    // If token is not provided
-    if (!token) {
+    if (req.cookies?.accessToken) {
+      authMethod = 'cookie';
+      rawToken = req.cookies.accessToken;
+    } else if (req.headers.authorization?.startsWith('Bearer ')) {
+      authMethod = 'bearer';
+      rawToken = req.headers.authorization.substring(7);
+    } else {
       throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
     }
 
+    res.locals.authMethod = authMethod;
+
     let decoded: JwtToken | null = null;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtToken;
+      decoded = jwt.verify(rawToken, process.env.JWT_SECRET as string, { algorithms: ['HS256'] }) as JwtToken;
     } catch {
       throw new AppException(UNAUTHORIZED_MESSAGE, 401);
     }

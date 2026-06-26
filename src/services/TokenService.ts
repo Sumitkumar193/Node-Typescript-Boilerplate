@@ -26,6 +26,7 @@ class TokenService {
 
     const token = jwt.sign(tokenData, process.env.JWT_SECRET as string, {
       expiresIn: '24h',
+      algorithm: 'HS256',
     });
 
     return token;
@@ -70,6 +71,7 @@ class TokenService {
       const data = jwt.verify(
         token,
         process.env.JWT_SECRET as string,
+        { algorithms: ['HS256'] },
       ) as JwtToken;
 
       const tokenRecord = await prisma.userToken.findUnique({

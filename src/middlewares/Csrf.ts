@@ -8,11 +8,12 @@ const { generateToken, validateRequest } = doubleCsrf({
   },
   cookieName: 'XSRF-TOKEN',
   cookieOptions: {
-    sameSite: 
+    sameSite:
       (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none' | undefined) ??
       'lax',
     secure: process.env.NODE_ENV === 'production',
-    httpOnly: false, // for JavaScript access (like Laravel)
+    httpOnly: false,
+    maxAge: parseInt(process.env.COOKIE_TTL ?? '86400', 10) * 1000,
   },
   size: 64,
   getTokenFromRequest: (req) => req.headers['x-xsrf-token'] as string,
@@ -20,47 +21,25 @@ const { generateToken, validateRequest } = doubleCsrf({
 
 export function AttachCsrf(req: Request, res: Response): void {
   const token = generateToken(req, res);
-  
-  res.cookie('XSRF-TOKEN', token, {
-    httpOnly: false, // for JavaScript access (like Laravel)
-    sameSite:
-      (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none' | undefined) ??
-      'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: parseInt(process.env.COOKIE_TTL ?? '86400', 10) * 1000,
-  });
-
-  res.setHeader('XSRF-TOKEN', token);
 
   res.status(200).json({
     success: true,
     message: 'CSRF token issued',
-    data: {
-      token,
-    },
+    data: { token },
   });
 }
 
 export function VerifyCsrf(req: Request, res: Response, next: NextFunction) {
-  // ponytail: Bearer-only clients (mobile) don't carry the XSRF cookie, so CSRF
-  // doesn't apply — the Authorization header itself can't be set cross-origin.
-  if (req.headers.authorization?.startsWith('Bearer ') && !req.cookies?.['XSRF-TOKEN']) {
+  if (res.locals.authMethod === 'bearer') {
     return next();
   }
 
   try {
     if (validateRequest(req)) {
       return next();
-    } else {
-      return res.status(403).json({
-        success: false,
-        message: 'Invalid or missing CSRF token',
-      });
     }
-  } catch (error) {
-    return res.status(403).json({
-      success: false,
-      message: 'Invalid or missing CSRF token',
-    });
+    return res.status(403).json({ success: false, message: 'Invalid or missing CSRF token' });
+  } catch {
+    return res.status(403).json({ success: false, message: 'Invalid or missing CSRF token' });
   }
 }
