@@ -50,7 +50,10 @@ class Client {
 
   static getInstance(): RedisClientType {
     if (!Client.instance) {
-      throw new AppException('Redis client not initialized. Call Client.init() first.', 500);
+      throw new AppException(
+        'Redis client not initialized. Call Client.init() first.',
+        500,
+      );
     }
 
     return Client.instance;

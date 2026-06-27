@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import ApiException from '@errors/ApiException';
 import AppException from '@errors/AppException';
-import { JwtToken } from '@interfaces/AppCommonInterface';
+import { verifyAccessToken } from '@services/TokenService';
+import RedisService from '@services/RedisService';
 import prisma from '@database/Prisma';
+import { UserWithRoles } from '@interfaces/AppCommonInterface';
 
-const UNAUTHORIZED_MESSAGE = 'Unauthorized';
+const UNAUTHORIZED = 'Unauthorized';
 
 export default async function Authenticate(
   req: Request,
@@ -13,8 +14,8 @@ export default async function Authenticate(
   next: NextFunction,
 ) {
   try {
-    let authMethod: 'cookie' | 'bearer';
     let rawToken: string;
+    let authMethod: 'cookie' | 'bearer';
 
     if (req.cookies?.accessToken) {
       authMethod = 'cookie';
@@ -23,42 +24,67 @@ export default async function Authenticate(
       authMethod = 'bearer';
       rawToken = req.headers.authorization.substring(7);
     } else {
-      throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
+      throw new ApiException(UNAUTHORIZED, 401);
     }
 
     res.locals.authMethod = authMethod;
 
-    let decoded: JwtToken | null = null;
+    let decoded: { sub: number; sid: string; exp: number; iat: number };
     try {
-      decoded = jwt.verify(rawToken, process.env.JWT_SECRET as string, { algorithms: ['HS256'] }) as JwtToken;
+      decoded = verifyAccessToken(rawToken);
     } catch {
-      throw new AppException(UNAUTHORIZED_MESSAGE, 401);
+      // Expired or invalid signature — no Redis call needed
+      throw new AppException(UNAUTHORIZED, 401);
     }
 
-    // If token is not valid
-    if (!decoded) {
-      throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
+    // Single GET — fail open if Redis is unreachable so a Redis outage doesn't
+    // block every API call. DB revocation via RefreshToken.status covers future
+    // refresh attempts; the access-token window (15m) is the exposure period.
+    // Decision flagged here because no existing Redis-down convention was found in this repo.
+    try {
+      const redis = RedisService.getInstance();
+      const blacklisted = await redis.get(`blacklist:${decoded.sid}`);
+      if (blacklisted) {
+        throw new ApiException(UNAUTHORIZED, 401);
+      }
+    } catch (err) {
+      if (err instanceof ApiException) throw err;
+      console.error(
+        '[auth] Redis blacklist check failed, failing open:',
+        (err as Error).message,
+      );
     }
 
-    const tokenRecord = await prisma.userToken.findUnique({
-      where: { id: decoded.id },
-    });
-
-    // If token is not found or disabled
-    if (!tokenRecord || tokenRecord.disabled) {
-      throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
+    let user: UserWithRoles | null = null;
+    try {
+      const redis = RedisService.getInstance();
+      const cached = await redis.get(`user:${decoded.sub}`);
+      if (cached) user = JSON.parse(cached) as UserWithRoles;
+    } catch {
+      /* Redis down, fall through to DB */
     }
-
-    const user = await prisma.user.findUnique({
-      where: { id: tokenRecord.userId, disabled: false },
-      omit: { password: true },
-      include: {
-        Role: true,
-      },
-    });
 
     if (!user) {
-      throw new ApiException(UNAUTHORIZED_MESSAGE, 401);
+      user = await prisma.user.findUnique({
+        where: { id: decoded.sub },
+        omit: { password: true },
+        include: { Role: true },
+      });
+      if (user) {
+        try {
+          const redis = RedisService.getInstance();
+          // 60s TTL — stale window before a disabled flag propagates
+          await redis.set(`user:${decoded.sub}`, JSON.stringify(user), {
+            EX: 60,
+          });
+        } catch {
+          /* Redis down, skip cache write */
+        }
+      }
+    }
+
+    if (!user || user.disabled) {
+      throw new ApiException(UNAUTHORIZED, 401);
     }
 
     if (!user.isVerified && !req.originalUrl.includes('/auth/verify')) {

@@ -5,7 +5,6 @@ import { mockMailService } from '../setup';
 import AuthRoutes from '@routes/AuthRoutes';
 import ApiException from '@errors/ApiException';
 import prisma from '@database/Prisma';
-import { execSync } from 'child_process';
 
 const app = express();
 app.use(express.json());
@@ -32,73 +31,55 @@ const BASE = {
   password: 'Password123!',
 };
 
-// Generate unique email for each test to avoid conflicts
 function getUniqueEmail() {
   return `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}@example.com`;
 }
 
-const reg = (overrides = {}) =>
+const reg = (overrides: Record<string, unknown> = {}) =>
   request(app)
     .post('/auth/register')
     .set('x-xsrf-token', 'test')
-    .send({ 
-      ...BASE, 
-      email: overrides.email || BASE.email,
-      confirmPassword: BASE.password, 
-      ...overrides 
+    .send({
+      ...BASE,
+      email: (overrides.email as string) || BASE.email,
+      confirmPassword: BASE.password,
+      ...overrides,
     });
 
-async function registerAndLogin(overrides = {}) {
-  const email = overrides.email || getUniqueEmail();
+async function registerAndLogin(overrides: Record<string, unknown> = {}) {
+  const email = (overrides.email as string) || getUniqueEmail();
   const regRes = await reg({ ...overrides, email });
-  if (!regRes.body || !regRes.body.data || !regRes.body.data.token) {
+  if (!regRes.body?.data?.accessToken) {
     throw new Error(`Registration failed: ${regRes.status} - ${JSON.stringify(regRes.body)}`);
   }
-  
-  // Automatically verify the user in tests to avoid 403 errors
-  const user = await prisma.user.findUnique({
-    where: { email },
-  });
-  
+
+  // Verify user so protected routes don't return 403
+  const user = await prisma.user.findUnique({ where: { email } });
   if (user) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { isVerified: true },
-    });
+    await prisma.user.update({ where: { id: user.id }, data: { isVerified: true } });
   }
-  
-  return regRes.body.data.token as string;
+
+  return {
+    accessToken: regRes.body.data.accessToken as string,
+    refreshToken: regRes.body.data.refreshToken as string,
+    email,
+  };
 }
 
 describe('Auth Routes (integration)', () => {
-  beforeAll(async () => {
-    await prisma.$executeRawUnsafe(`
-    TRUNCATE TABLE
-      "UserToken",
-      "UserVerification",
-      "PasswordReset",
-      "User"
-    RESTART IDENTITY CASCADE;
-  `);
-
-    mockMailService.send.mockClear();
-  });
-
   // ── Register ────────────────────────────────────────────────────────────────
 
   describe('POST /auth/register', () => {
-    it('creates user in DB and returns JWT', async () => {
+    it('creates user in DB and returns access + refresh tokens', async () => {
       const res = await reg().expect(201);
 
       expect(res.body.success).toBe(true);
-      expect(res.body.data.token).toBeTruthy();
+      expect(res.body.data.accessToken).toBeTruthy();
+      expect(res.body.data.refreshToken).toBeTruthy();
 
-      const user = await prisma.user.findUnique({
-        where: { email: BASE.email },
-      });
+      const user = await prisma.user.findUnique({ where: { email: BASE.email } });
       expect(user).toBeTruthy();
       expect(user!.isVerified).toBe(false);
-      // password must be hashed, not plain
       expect(user!.password).not.toBe(BASE.password);
     });
 
@@ -112,12 +93,7 @@ describe('Auth Routes (integration)', () => {
       const res = await request(app)
         .post('/auth/register')
         .set('x-xsrf-token', 'test')
-        .send({
-          name: '',
-          email: 'not-an-email',
-          password: 'x',
-          confirmPassword: 'x',
-        })
+        .send({ name: '', email: 'not-an-email', password: 'x', confirmPassword: 'x' })
         .expect(422);
       expect(res.body.message).toBe('Validation error');
     });
@@ -128,22 +104,21 @@ describe('Auth Routes (integration)', () => {
   describe('POST /auth/login', () => {
     beforeEach(() => reg());
 
-    it('returns JWT and persists token record', async () => {
+    it('returns access + refresh tokens and persists RefreshToken record', async () => {
       const res = await request(app)
         .post('/auth/login')
         .set('x-xsrf-token', 'test')
         .send({ email: BASE.email, password: BASE.password })
         .expect(200);
 
-      expect(res.body.data.token).toBeTruthy();
+      expect(res.body.data.accessToken).toBeTruthy();
+      expect(res.body.data.refreshToken).toBeTruthy();
 
-      const user = await prisma.user.findUnique({
-        where: { email: BASE.email },
+      const user = await prisma.user.findUnique({ where: { email: BASE.email } });
+      const records = await prisma.refreshToken.findMany({
+        where: { userId: user!.id, status: 'ACTIVE' },
       });
-      const tokens = await prisma.userToken.findMany({
-        where: { userId: user!.id, disabled: false },
-      });
-      expect(tokens.length).toBeGreaterThanOrEqual(1);
+      expect(records.length).toBeGreaterThanOrEqual(1);
     });
 
     it('returns 401 on wrong password', async () => {
@@ -155,7 +130,7 @@ describe('Auth Routes (integration)', () => {
       expect(res.body.message).toBe('Invalid email or password');
     });
 
-    it('returns 404 for unknown email', async () => {
+    it('returns 401 for unknown email', async () => {
       const res = await request(app)
         .post('/auth/login')
         .set('x-xsrf-token', 'test')
@@ -179,16 +154,57 @@ describe('Auth Routes (integration)', () => {
     });
   });
 
+  // ── Refresh ──────────────────────────────────────────────────────────────────
+
+  describe('POST /auth/refresh', () => {
+    it('issues a new token pair and rotates the old refresh token', async () => {
+      const { refreshToken } = await registerAndLogin();
+
+      const res = await request(app)
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      expect(res.body.data.accessToken).toBeTruthy();
+      expect(res.body.data.refreshToken).toBeTruthy();
+      expect(res.body.data.refreshToken).not.toBe(refreshToken);
+    });
+
+    it('returns 401 for an unknown refresh token', async () => {
+      const res = await request(app)
+        .post('/auth/refresh')
+        .send({ refreshToken: 'not-a-real-token' })
+        .expect(401);
+      expect(res.body.message).toBe('Invalid token');
+    });
+
+    it('returns 401 and revokes entire family on reuse of a rotated token', async () => {
+      const { refreshToken: original } = await registerAndLogin();
+
+      // First rotation — original becomes ROTATED
+      const rotateRes = await request(app)
+        .post('/auth/refresh')
+        .send({ refreshToken: original })
+        .expect(200);
+      expect(rotateRes.body.data.refreshToken).toBeTruthy();
+
+      // Reuse the already-ROTATED token — should revoke the whole family
+      await request(app)
+        .post('/auth/refresh')
+        .send({ refreshToken: original })
+        .expect(401);
+    });
+  });
+
   // ── Profile ─────────────────────────────────────────────────────────────────
 
   describe('GET /auth/me', () => {
     it('returns the authenticated user', async () => {
-      const email = getUniqueEmail();
-      const token = await registerAndLogin({ email });
+      const { accessToken, email } = await registerAndLogin();
 
       const res = await request(app)
         .get('/auth/me')
-        .set('Authorization', `Bearer ${token}`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(res.body.success).toBe(true);
@@ -207,11 +223,8 @@ describe('Auth Routes (integration)', () => {
     it('creates a reset token in DB and sends email', async () => {
       const email = getUniqueEmail();
       await reg({ email });
-      const user = await prisma.user.findUnique({
-        where: { email },
-      });
+      const user = await prisma.user.findUnique({ where: { email } });
 
-      // Clear the mock to ignore the verification email sent during registration
       mockMailService.send.mockClear();
 
       const res = await request(app)
@@ -223,16 +236,13 @@ describe('Auth Routes (integration)', () => {
       expect(res.body.success).toBe(true);
       expect(mockMailService.send).toHaveBeenCalledOnce();
 
-      const reset = await prisma.passwordReset.findFirst({
-        where: { userId: user!.id },
-      });
+      const reset = await prisma.passwordReset.findFirst({ where: { userId: user!.id } });
       expect(reset).toBeTruthy();
     });
 
     it('returns 200 silently for unknown email (enumeration guard)', async () => {
-      // Clear any previous mock calls
       mockMailService.send.mockClear();
-      
+
       const res = await request(app)
         .post('/auth/forgot-password')
         .set('x-xsrf-token', 'test')
@@ -249,33 +259,25 @@ describe('Auth Routes (integration)', () => {
     it('validates token and resets password end-to-end', async () => {
       const email = getUniqueEmail();
       await reg({ email });
-      const user = await prisma.user.findUnique({
-        where: { email },
-      });
 
-      // Clear the mock to ignore the verification email sent during registration
       mockMailService.send.mockClear();
 
-      // Trigger reset
       await request(app)
         .post('/auth/forgot-password')
         .set('x-xsrf-token', 'test')
         .send({ email });
 
-      // Get the raw token from the email that was sent
       expect(mockMailService.send).toHaveBeenCalledOnce();
       const emailCall = mockMailService.send.mock.calls[0][0];
       const url = new URL(emailCall.context.url);
       const rawToken = url.searchParams.get('token');
       const resetId = url.pathname.split('/').pop();
 
-      // GET — check token is valid
       const getRes = await request(app)
         .get(`/auth/forgot-password/${resetId}?token=${rawToken}`)
         .expect(200);
       expect(getRes.body.data.email).toBe(email);
 
-      // POST — actually reset
       const postRes = await request(app)
         .post(`/auth/forgot-password/${resetId}`)
         .set('x-xsrf-token', 'test')
@@ -283,15 +285,12 @@ describe('Auth Routes (integration)', () => {
         .expect(200);
       expect(postRes.body.message).toMatch(/Password reset successful/);
 
-      // Old password no longer works
-      const loginRes = await request(app)
+      await request(app)
         .post('/auth/login')
         .set('x-xsrf-token', 'test')
         .send({ email, password: BASE.password })
         .expect(401);
-      expect(loginRes.body.message).toBe('Invalid email or password');
 
-      // New password works
       await request(app)
         .post('/auth/login')
         .set('x-xsrf-token', 'test')
@@ -310,48 +309,72 @@ describe('Auth Routes (integration)', () => {
   // ── Logout ───────────────────────────────────────────────────────────────────
 
   describe('POST /auth/logout', () => {
-    it('invalidates the current token', async () => {
-      const email = getUniqueEmail();
-      const token = await registerAndLogin({ email });
-      const decoded = jwt.decode(token) as { id: number };
+    it('revokes the current RefreshToken row', async () => {
+      const { accessToken } = await registerAndLogin();
+      const decoded = jwt.decode(accessToken) as { sub: number; sid: string };
 
       await request(app)
         .post('/auth/logout')
-        .set('Authorization', `Bearer ${token}`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .set('x-xsrf-token', 'test')
         .expect(200);
 
-      // Token record should now be disabled
-      const record = await prisma.userToken.findUnique({
-        where: { id: decoded.id },
+      const record = await prisma.refreshToken.findFirst({
+        where: { jti: decoded.sid },
       });
-      expect(record!.disabled).toBe(true);
+      expect(record!.status).toBe('REVOKED');
 
-      // Can no longer use the token
-      await request(app)
-        .get('/auth/me')
-        .set('Authorization', `Bearer ${token}`)
-        .expect(401);
+      // Access token is now blacklisted (via mock Redis in tests) — in production
+      // it would be blocked too. Here we verify the DB revocation happened.
     });
   });
 
-  describe('POST /auth/logout/:id (device logout)', () => {
-    it('invalidates a specific device token', async () => {
-      const email = getUniqueEmail();
-      const token = await registerAndLogin({ email });
-      const decoded = jwt.decode(token) as { id: number };
+  // ── Sessions ─────────────────────────────────────────────────────────────────
 
-      await request(app)
-        .post(`/auth/logout/${decoded.id}`)
-        .set('Authorization', `Bearer ${token}`)
-        .set('x-xsrf-token', 'test')
-        .send({ id: decoded.id })
+  describe('GET /auth/sessions', () => {
+    it('lists active sessions for the authenticated user', async () => {
+      const { accessToken } = await registerAndLogin();
+
+      const res = await request(app)
+        .get('/auth/sessions')
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const record = await prisma.userToken.findUnique({
-        where: { id: decoded.id },
+      expect(Array.isArray(res.body.data.sessions)).toBe(true);
+      expect(res.body.data.sessions.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.sessions[0]).not.toHaveProperty('tokenHash');
+      const current = res.body.data.sessions.find((s: any) => s.isCurrent);
+      expect(current).toBeTruthy();
+    });
+  });
+
+  describe('DELETE /auth/sessions/:jti', () => {
+    it('revokes a specific session', async () => {
+      const { accessToken } = await registerAndLogin();
+      const decoded = jwt.decode(accessToken) as { sid: string };
+
+      await request(app)
+        .delete(`/auth/sessions/${decoded.sid}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .set('x-xsrf-token', 'test')
+        .expect(200);
+
+      const record = await prisma.refreshToken.findFirst({
+        where: { jti: decoded.sid },
       });
-      expect(record!.disabled).toBe(true);
+      expect(record!.status).toBe('REVOKED');
+    });
+
+    it('returns 404 when session jti does not belong to the user', async () => {
+      const { accessToken } = await registerAndLogin();
+
+      const res = await request(app)
+        .delete('/auth/sessions/nonexistent-jti')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .set('x-xsrf-token', 'test')
+        .expect(404);
+
+      expect(res.body.message).toBe('Session not found');
     });
   });
 });

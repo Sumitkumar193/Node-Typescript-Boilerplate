@@ -67,14 +67,15 @@ export class TransactionContext {
       ...options,
     };
 
-    return function (
+    return function Transactional(
       target: unknown,
       propertyKey: string,
       descriptor: PropertyDescriptor,
     ) {
       const originalMethod = descriptor.value;
+      const newDescriptor = { ...descriptor };
 
-      descriptor.value = async function (...args: unknown[]) {
+      newDescriptor.value = async function transactionalMethod(...args: unknown[]) {
         const existingStore = TransactionContext.storage.getStore();
 
         // ===== PROPAGATION RULES =====
@@ -132,7 +133,7 @@ export class TransactionContext {
         );
       };
 
-      return descriptor;
+      return newDescriptor;
     };
   }
 }

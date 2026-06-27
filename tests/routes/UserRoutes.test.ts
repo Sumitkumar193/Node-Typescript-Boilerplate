@@ -50,7 +50,7 @@ async function createUser(overrides = {}) {
     .set('x-xsrf-token', 'test')
     .send(data);
 
-  if (!res.body || !res.body.data || !res.body.data.token) {
+  if (!res.body || !res.body.data || !res.body.data.accessToken) {
     throw new Error(`User creation failed: ${res.status} - ${JSON.stringify(res.body)}`);
   }
 
@@ -63,7 +63,7 @@ async function createUser(overrides = {}) {
     });
   }
   
-  return { token: res.body.data.token as string, user: user! };
+  return { token: res.body.data.accessToken as string, user: user! };
 }
 
 async function makeAdmin(userId: number) {
@@ -75,17 +75,6 @@ async function makeAdmin(userId: number) {
 }
 
 describe('User Routes (integration)', () => {
-  beforeAll(async () => {
-    await prisma.$executeRawUnsafe(`
-    TRUNCATE TABLE
-      "UserToken",
-      "UserVerification",
-      "PasswordReset",
-      "User"
-    RESTART IDENTITY CASCADE;
-  `);
-  });
-
   // ── GET /users ───────────────────────────────────────────────────────────────
 
   describe('GET /users', () => {

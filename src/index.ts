@@ -13,9 +13,11 @@ import ApiException from '@errors/ApiException';
 import RedisService from '@services/RedisService';
 import MailService from '@services/MailService';
 import BullMQService from '@services/BullMQService';
+import RefreshTokenService from '@services/RefreshTokenService';
 import validateOrigin from '@services/CorsService';
 import UserRoutes from '@routes/UserRoutes';
 import AuthRoutes from '@routes/AuthRoutes';
+import SocketRoutes from '@routes/SocketRoutes';
 import SocketUWS from './services/uSocket';
 
 dotenv.config();
@@ -26,6 +28,12 @@ if (!process.env.JWT_SECRET) {
 
 RedisService.init();
 MailService.init();
+
+RefreshTokenService.cleanup().catch(console.error);
+setInterval(
+  () => RefreshTokenService.cleanup().catch(console.error),
+  24 * 60 * 60 * 1000,
+).unref();
 
 const dsn = process.env.SENTRY_DSN;
 if (dsn && dsn.length > 0) {
@@ -39,7 +47,15 @@ if (dsn && dsn.length > 0) {
     beforeSend(event) {
       const data = event.extra?.data as Record<string, unknown> | undefined;
       if (data) {
-        const SCRUB = ['password', 'confirmPassword', 'currentPassword', 'code', 'token', 'email', 'name'];
+        const SCRUB = [
+          'password',
+          'confirmPassword',
+          'currentPassword',
+          'code',
+          'token',
+          'email',
+          'name',
+        ];
         const body = data.body as Record<string, unknown> | undefined;
         if (body) {
           const scrubbed = { ...body };
@@ -48,9 +64,10 @@ if (dsn && dsn.length > 0) {
         }
         // don't forward query params or user object — may contain tokens/PII
         delete data.query;
-        delete (event.extra as Record<string, unknown>).user;
       }
-      return event;
+      const safeExtra = { ...(event.extra as Record<string, unknown> | undefined) };
+      delete safeExtra.user;
+      return { ...event, extra: safeExtra };
     },
   });
 }
@@ -92,6 +109,7 @@ app.get('/api/keep-alive', (req, res) =>
 );
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
+app.use('/api/socket', SocketRoutes);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const fallback: ErrorRequestHandler = (err, req, res, _next) => {

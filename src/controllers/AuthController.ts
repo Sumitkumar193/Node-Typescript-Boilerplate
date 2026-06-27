@@ -10,10 +10,23 @@ import {
   passwordResetValidation,
 } from '@validations/UserValidation';
 import validate from '@services/ValidationService';
-import TokenService from '@services/TokenService';
+import RefreshTokenService from '@services/RefreshTokenService';
 import MailService from '@services/MailService';
-import { JwtToken, UserWithRoles } from '@interfaces/AppCommonInterface';
+import {
+  AccessTokenPayload,
+  UserWithRoles,
+} from '@interfaces/AppCommonInterface';
 import AuthService from '@services/AuthService';
+import RedisService from '@services/RedisService';
+
+function extractMeta(req: Request) {
+  return {
+    // trust proxy is not configured in this app — req.ip may be the proxy address
+    // in production. Configure app.set('trust proxy', ...) for accurate client IPs.
+    ip: req.ip,
+    userAgent: (req.headers['user-agent'] ?? '').slice(0, 500),
+  };
+}
 
 export async function createUser(
   req: Request,
@@ -46,10 +59,12 @@ export async function createUser(
     });
 
     await prisma.user.assignRole(user.id, 'User');
-
     await prisma.user.generateVerificationToken(user);
 
-    const token = await TokenService.generateUserToken(user);
+    const { accessToken, refreshToken: newRefreshToken } = await RefreshTokenService.login(
+      user.id,
+      extractMeta(req),
+    );
 
     return res.status(201).json({
       success: true,
@@ -60,7 +75,8 @@ export async function createUser(
           email: user.email,
           isVerified: user.isVerified,
         },
-        token,
+        accessToken,
+        refreshToken: newRefreshToken,
       },
     });
   } catch (error) {
@@ -199,13 +215,19 @@ export async function loginUser(
       );
     }
 
-    const verifyPassword = await bcrypt.compare(AuthService.prehash(password), user.password);
+    const verifyPassword = await bcrypt.compare(
+      AuthService.prehash(password),
+      user.password,
+    );
 
     if (!verifyPassword) {
       throw new ApiException('Invalid email or password', 401);
     }
 
-    const token = await TokenService.generateUserToken(user);
+    const { accessToken, refreshToken: newRefreshToken } = await RefreshTokenService.login(
+      user.id,
+      extractMeta(req),
+    );
 
     return res.status(200).json({
       success: true,
@@ -216,8 +238,34 @@ export async function loginUser(
           email: user.email,
           isVerified: user.isVerified,
         },
-        token,
+        accessToken,
+        refreshToken: newRefreshToken,
       },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function refreshToken(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { refreshToken: raw } = req.body;
+
+    if (!raw) {
+      throw new ApiException('Refresh token required', 401);
+    }
+
+    const { accessToken, refreshToken: newRaw } =
+      await RefreshTokenService.refresh(raw, extractMeta(req));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Token refreshed',
+      data: { accessToken, refreshToken: newRaw },
     });
   } catch (error) {
     return next(error);
@@ -254,7 +302,11 @@ export async function forgotPassword(
       });
     }
 
-    const { code: rawToken, encryptedToken, expiresAt } = await AuthService.generateCode(32);
+    const {
+      code: rawToken,
+      encryptedToken,
+      expiresAt,
+    } = await AuthService.generateCode(32);
 
     const passwordResetToken = await prisma.passwordReset.create({
       data: {
@@ -301,7 +353,11 @@ export async function getResetPasswordEmail(
       include: { User: { select: { email: true, name: true } } },
     });
 
-    if (!passwordReset || !rawToken || !(await bcrypt.compare(rawToken, passwordReset.token))) {
+    if (
+      !passwordReset ||
+      !rawToken ||
+      !(await bcrypt.compare(rawToken, passwordReset.token))
+    ) {
       throw new ApiException('Password reset token is invalid or expired', 404);
     }
 
@@ -332,7 +388,11 @@ export async function resetPassword(
       },
     });
 
-    if (!passwordReset || !rawToken || !(await bcrypt.compare(rawToken, passwordReset.token))) {
+    if (
+      !passwordReset ||
+      !rawToken ||
+      !(await bcrypt.compare(rawToken, passwordReset.token))
+    ) {
       throw new ApiException('Password reset token is invalid or expired', 404);
     }
 
@@ -357,6 +417,12 @@ export async function resetPassword(
       data: { disabled: true },
     });
 
+    try {
+      await RedisService.getInstance().del(`user:${passwordReset.userId}`);
+    } catch {
+      /* non-fatal */
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Password reset successful. Please login to your account.',
@@ -372,36 +438,12 @@ export async function logoutUser(
   next: NextFunction,
 ) {
   try {
-    const { token, user } = res.locals as {
-      token: JwtToken;
-      user: UserWithRoles;
-    };
-
-    await TokenService.logoutUserByTokenId(token.id, user);
+    const { token } = res.locals as { token: AccessTokenPayload };
+    await RefreshTokenService.logout(token.sid, token.exp);
 
     return res.status(200).json({
       success: true,
       message: 'User logged out',
-    });
-  } catch (error) {
-    return next(error);
-  }
-}
-
-export async function logoutFromDevice(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const { id } = req.body;
-    const { user } = res.locals as { user: UserWithRoles };
-
-    await TokenService.logoutUserByTokenId(id, user);
-
-    return res.status(200).json({
-      success: true,
-      message: 'User logged out from device',
     });
   } catch (error) {
     return next(error);
@@ -414,13 +456,57 @@ export async function logoutFromAllDevices(
   next: NextFunction,
 ) {
   try {
-    const { user } = res.locals;
-
-    await TokenService.logoutFromAllDevices(user);
+    const { user } = res.locals as { user: UserWithRoles };
+    await RefreshTokenService.revokeAllSessions(user.id);
 
     return res.status(200).json({
       success: true,
       message: 'User logged out from all devices',
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getSessions(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { user, token } = res.locals as {
+      user: UserWithRoles;
+      token: AccessTokenPayload;
+    };
+
+    const sessions = await RefreshTokenService.listSessions(user.id, token.sid);
+
+    return res.status(200).json({
+      success: true,
+      data: { sessions },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function revokeSessionHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { jti } = req.params;
+    const { user, token } = res.locals as {
+      user: UserWithRoles;
+      token: AccessTokenPayload;
+    };
+
+    await RefreshTokenService.revokeSession(user.id, jti, token.sid, token.exp);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Session revoked',
     });
   } catch (error) {
     return next(error);

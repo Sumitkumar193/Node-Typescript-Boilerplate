@@ -1,113 +1,51 @@
-import { User, UserToken } from '@prisma/client';
-import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
+import jwt from 'jsonwebtoken';
 import prisma from '@database/Prisma';
-import { JwtToken, UserWithRoles } from '@interfaces/AppCommonInterface';
+import { UserWithRoles } from '@interfaces/AppCommonInterface';
 
-class TokenService {
-  static generateUserToken = async (user: User): Promise<string> => {
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 1);
+export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+export const REFRESH_TOKEN_TTL_DAYS = 30;
 
-    const userToken = await prisma.userToken.create({
-      data: {
-        userId: user.id,
-        token: crypto.randomUUID(),
-        disabled: false,
-      },
-    });
-
-    const tokenData: JwtToken = {
-      id: userToken.id,
-      name: user.name,
-      email: user.email,
-      expiresAt,
-    };
-
-    const token = jwt.sign(tokenData, process.env.JWT_SECRET as string, {
-      expiresIn: '24h',
-      algorithm: 'HS256',
-    });
-
-    return token;
-  };
-
-  static logoutUserByTokenId = async (
-    id: number,
-    user: UserWithRoles,
-  ): Promise<void> => {
-    await prisma.userToken.update({
-      where: {
-        id,
-        userId: user.id,
-        disabled: false,
-      },
-      data: {
-        disabled: true,
-      },
-    });
-  };
-
-  static logoutFromAllDevices = async (user: User): Promise<void> => {
-    await prisma.userToken.updateMany({
-      where: {
-        userId: user.id,
-        disabled: false,
-      },
-      data: {
-        disabled: true,
-      },
-    });
-  };
-
-  static getUserFromToken = async (
-    token: string,
-  ): Promise<UserWithRoles | null> => {
-    try {
-      if (!token) {
-        return null;
-      }
-
-      const data = jwt.verify(
-        token,
-        process.env.JWT_SECRET as string,
-        { algorithms: ['HS256'] },
-      ) as JwtToken;
-
-      const tokenRecord = await prisma.userToken.findUnique({
-        where: { id: data.id },
-      });
-
-      if (!tokenRecord || tokenRecord.disabled) {
-        return null;
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: tokenRecord.userId, disabled: false },
-        include: {
-          Role: true,
-        },
-      });
-
-      return user;
-    } catch (error) {
-      console.error('Error verifying token:', error);
-      return null;
-    }
-  };
-
-  static getUsersActiveTokens = async (
-    user: UserWithRoles,
-  ): Promise<UserToken[]> => {
-    const activeTokens = await prisma.userToken.findMany({
-      where: {
-        userId: user.id,
-        disabled: false,
-      },
-    });
-
-    return activeTokens;
-  };
+export function hashToken(raw: string): string {
+  return crypto.createHash('sha256').update(raw).digest('hex');
 }
 
-export default TokenService;
+export function generateRefreshToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+export function signAccessToken(payload: { sub: number; sid: string }): string {
+  return jwt.sign(payload, process.env.JWT_SECRET as string, {
+    expiresIn: '15m',
+    algorithm: 'HS256',
+  });
+}
+
+export function verifyAccessToken(token: string): {
+  sub: number;
+  sid: string;
+  exp: number;
+  iat: number;
+} {
+  return jwt.verify(token, process.env.JWT_SECRET as string, {
+    algorithms: ['HS256'],
+  }) as unknown as { sub: number; sid: string; exp: number; iat: number };
+}
+
+// Used by WebSocket auth — verifies the JWT and fetches the user in one call.
+// Does not check the Redis blacklist; WebSocket connections are authenticated
+// at connect time and rely on the 15m access-token window for revocation.
+export async function getUserFromToken(
+  token: string,
+): Promise<UserWithRoles | null> {
+  try {
+    const decoded = verifyAccessToken(token);
+    return prisma.user.findUnique({
+      where: { id: decoded.sub, disabled: false },
+      omit: { password: true },
+      include: { Role: true },
+    });
+  } catch {
+    return null;
+  }
+}

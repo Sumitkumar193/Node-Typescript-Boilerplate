@@ -2,8 +2,8 @@ import { NextFunction, Request, Response } from 'express';
 import { Prisma, User } from '@prisma/client';
 import ApiException from '@errors/ApiException';
 import prisma from '@database/Prisma';
-import TokenService from '@services/TokenService';
 import { UserWithRoles } from '@interfaces/AppCommonInterface';
+import RedisService from '@services/RedisService';
 
 export async function getUsers(
   req: Request,
@@ -131,10 +131,18 @@ export async function disableUser(
       );
     }
 
+    const targetId = parseInt(id, 10);
+
     await prisma.user.update({
-      where: { id: parseInt(id, 10) },
+      where: { id: targetId },
       data: { disabled: true },
     });
+
+    try {
+      await RedisService.getInstance().del(`user:${targetId}`);
+    } catch {
+      /* non-fatal */
+    }
 
     return res.status(200).json({
       success: true,
@@ -156,32 +164,6 @@ export async function getProfile(
     return res.status(200).json({
       success: true,
       data: user,
-    });
-  } catch (error) {
-    return next(error);
-  }
-}
-
-export async function listTokens(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const { user } = res.locals as { user: UserWithRoles };
-
-    const UserTokens = await TokenService.getUsersActiveTokens(user);
-
-    const tokens = UserTokens.map((token) => ({
-      id: token.id,
-      createdAt: token.createdAt,
-    }));
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        tokens,
-      },
     });
   } catch (error) {
     return next(error);

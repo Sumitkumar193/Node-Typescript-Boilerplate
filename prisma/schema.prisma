@@ -13,6 +13,12 @@ datasource db {
   provider = "postgresql"
 }
 
+enum RefreshTokenStatus {
+  ACTIVE
+  ROTATED
+  REVOKED
+}
+
 model Role {
   id        Int      @id @default(autoincrement())
   name      String   @unique
@@ -34,9 +40,10 @@ model User {
   roleId        Int             @default(1) // Default role is 'User'
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
-  UserTokens    UserToken[]
-  PasswordReset PasswordReset[]
-  UserProfile   UserProfile?
+  UserTokens     UserToken[]
+  PasswordReset  PasswordReset[]
+  UserProfile    UserProfile?
+  RefreshTokens  RefreshToken[]
 
   Role             Role              @relation(fields: [roleId], references: [id])
   UserVerification UserVerification?
@@ -93,4 +100,24 @@ model PasswordReset {
   User User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
+}
+
+model RefreshToken {
+  id         Int                @id @default(autoincrement())
+  jti        String             @unique @default(cuid())
+  familyId   String
+  userId     Int
+  tokenHash  String             @unique
+  status     RefreshTokenStatus @default(ACTIVE)
+  expiresAt  DateTime
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  lastUsedAt DateTime?
+  userAgent  String?
+  ip         String?
+
+  User User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
 }

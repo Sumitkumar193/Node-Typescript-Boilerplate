@@ -25,7 +25,22 @@ vi.mock('@middlewares/Csrf', () => ({
   __esModule: true,
 }));
 
+// Redis: return no blacklist entries so Authenticate middleware passes in integration tests
+const mockRedisClient = {
+  get: vi.fn().mockResolvedValue(null),
+  set: vi.fn().mockResolvedValue('OK'),
+  del: vi.fn().mockResolvedValue(1),
+};
+vi.mock('@services/RedisService', () => ({
+  default: {
+    init: vi.fn(),
+    getInstance: vi.fn(() => mockRedisClient),
+    disconnect: vi.fn(),
+  },
+  __esModule: true,
+}));
+
 // Suppress Prisma query-hook console.log noise
 vi.spyOn(console, 'log').mockImplementation(() => {});
 
-export { mockMailService, mockLoginRateLimiter, mockVerifyCsrf, mockAttachCsrf };
+export { mockMailService, mockLoginRateLimiter, mockVerifyCsrf, mockAttachCsrf, mockRedisClient };

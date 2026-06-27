@@ -1,7 +1,8 @@
 import uWS from 'uWebSockets.js';
-import TokenService from '@services/TokenService';
+import { getUserFromToken } from '@services/TokenService';
 import prisma from '@database/Prisma';
 import validateOrigin from '@services/CorsService';
+import SocketAuthService from '@services/SocketAuthService';
 import { User, Role } from '@prisma/client';
 import { UserWithRoles } from '@interfaces/AppCommonInterface';
 
@@ -20,10 +21,6 @@ class SocketUWS {
     new Map();
 
   private static wsUserMap: Map<uWS.WebSocket<unknown>, number> = new Map();
-
-  // Track authentication status
-  private static wsAuthenticatedMap: Map<uWS.WebSocket<unknown>, boolean> =
-    new Map();
 
   // Track socket metadata
   private static wsMetadataMap: Map<
@@ -65,8 +62,6 @@ class SocketUWS {
         // Add to all sockets (public room equivalent)
         this.allSockets.add(ws);
         this.wsMetadataMap.set(ws, metadata);
-        this.wsAuthenticatedMap.set(ws, false);
-
         console.log('Socket connected', socketId);
 
         // Try to authenticate from cookie if available
@@ -131,9 +126,67 @@ class SocketUWS {
         await this.handleIdentify(ws, data.accessToken);
         break;
 
-      // Add more event handlers as needed
+      case 'join-private-room': {
+        const { roomId, token } = data as {
+          event: string;
+          roomId?: string;
+          token?: string;
+        };
+        const userId = this.wsUserMap.get(ws);
+        if (!userId) {
+          this.sendMessage(ws, { event: 'auth-required' });
+          break;
+        }
+        if (
+          typeof roomId !== 'string' ||
+          typeof token !== 'string' ||
+          !SocketAuthService.verifyToken(userId, roomId, token)
+        ) {
+          this.sendMessage(ws, {
+            event: 'join-room-denied',
+            roomId,
+            reason: 'Invalid token',
+          });
+          break;
+        }
+        ws.subscribe(roomId);
+        this.app.publish(
+          roomId,
+          JSON.stringify({ event: 'user-joined' }),
+          false,
+          true,
+        );
+        break;
+      }
+
+      case 'invite-user': {
+        const { roomId, userId: targetUserId } = data as {
+          event: string;
+          roomId?: string;
+          userId?: unknown;
+        };
+        const callerId = this.wsUserMap.get(ws);
+        if (!callerId) {
+          this.sendMessage(ws, { event: 'auth-required' });
+          break;
+        }
+        if (typeof roomId !== 'string' || !roomId.startsWith('group-')) break;
+        if (!SocketAuthService.isGroupAuthorized(roomId, callerId)) break;
+        const targetId = parseInt(targetUserId as string, 10);
+        if (!Number.isInteger(targetId) || targetId <= 0) break;
+        const targetExists = await prisma.user.findUnique({
+          where: { id: targetId, disabled: false },
+          select: { id: true },
+        });
+        if (!targetExists) break;
+        SocketAuthService.authorizeGroupMember(roomId, targetId);
+        this.userSocketMap.get(targetId)?.forEach((targetWs) => {
+          this.sendMessage(targetWs, { event: 'invited-to-room', roomId });
+        });
+        break;
+      }
+
       default:
-        // All sockets can receive messages, not just authenticated ones
         console.log('Unhandled event:', data.event);
     }
   }
@@ -172,10 +225,9 @@ class SocketUWS {
     if (!accessToken) return null;
 
     try {
-      const user = await TokenService.getUserFromToken(accessToken);
+      const user = await getUserFromToken(accessToken);
       if (user) {
         this.addUserSocket(user, ws);
-        this.wsAuthenticatedMap.set(ws, true);
         return user;
       }
     } catch (error) {
@@ -212,7 +264,6 @@ class SocketUWS {
     // Remove from all tracking maps
     this.allSockets.delete(ws);
     this.wsMetadataMap.delete(ws);
-    this.wsAuthenticatedMap.delete(ws);
 
     // Remove from user-specific tracking
     const userId = this.wsUserMap.get(ws);
@@ -242,7 +293,7 @@ class SocketUWS {
   }
 
   private static generateSocketId(): string {
-    return Math.random().toString(36).substr(2, 9);
+    return Math.random().toString(36).substring(2, 11);
   }
 
   /**
@@ -331,7 +382,7 @@ class SocketUWS {
     const message = { event, ...data };
 
     this.allSockets.forEach((ws) => {
-      if (this.wsAuthenticatedMap.get(ws)) {
+      if (this.wsUserMap.has(ws)) {
         this.sendMessage(ws, message, binary);
       }
     });
@@ -351,7 +402,7 @@ class SocketUWS {
     const message = { event, ...data };
 
     this.allSockets.forEach((ws) => {
-      if (!this.wsAuthenticatedMap.get(ws)) {
+      if (!this.wsUserMap.has(ws)) {
         this.sendMessage(ws, message, binary);
       }
     });
@@ -361,9 +412,10 @@ class SocketUWS {
    * Get connection statistics
    */
   static getConnectionStats() {
-    const authenticatedCount = Array.from(
-      this.wsAuthenticatedMap.values(),
-    ).filter(Boolean).length;
+    const authenticatedCount = [...this.userSocketMap.values()].reduce(
+      (sum, s) => sum + s.size,
+      0,
+    );
 
     return {
       totalConnections: this.allSockets.size,

@@ -3,7 +3,8 @@ import { doubleCsrf } from 'csrf-csrf';
 
 const { generateToken, validateRequest } = doubleCsrf({
   getSecret: () => {
-    if (!process.env.CSRF_SECRET) throw new Error('CSRF_SECRET env var is required');
+    if (!process.env.CSRF_SECRET)
+      throw new Error('CSRF_SECRET env var is required');
     return process.env.CSRF_SECRET;
   },
   cookieName: 'XSRF-TOKEN',
@@ -38,8 +39,12 @@ export function VerifyCsrf(req: Request, res: Response, next: NextFunction) {
     if (validateRequest(req)) {
       return next();
     }
-    return res.status(403).json({ success: false, message: 'Invalid or missing CSRF token' });
+    return res
+      .status(403)
+      .json({ success: false, message: 'Invalid or missing CSRF token' });
   } catch {
-    return res.status(403).json({ success: false, message: 'Invalid or missing CSRF token' });
+    return res
+      .status(403)
+      .json({ success: false, message: 'Invalid or missing CSRF token' });
   }
 }

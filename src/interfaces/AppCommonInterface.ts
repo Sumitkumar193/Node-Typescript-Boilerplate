@@ -2,11 +2,11 @@ import { where, orderBy, include, select } from '@interfaces/PrismaInterfaces';
 import { Prisma } from '@prisma/client';
 import { SendMailOptions } from 'nodemailer';
 
-export interface JwtToken {
-  id: number;
-  name: string | null;
-  email: string;
-  expiresAt: Date;
+export interface AccessTokenPayload {
+  sub: number;
+  sid: string;
+  exp: number;
+  iat: number;
 }
 
 export interface PaginationParams {

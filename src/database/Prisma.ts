@@ -7,23 +7,29 @@ import {
 } from '@interfaces/AppCommonInterface';
 import UserModel from '@database/Extensions/Models/UserModel';
 
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) }).$extends({
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
+}).$extends({
   query: {
     $allModels: {
       async create({ model, operation, args, query }) {
-        if (process.env.NODE_ENV !== 'production') console.log(`Operation: ${operation} on model: ${model}`);
+        if (process.env.NODE_ENV !== 'production')
+          console.log(`Operation: ${operation} on model: ${model}`);
         return query(args);
       },
       async createMany({ model, operation, args, query }) {
-        if (process.env.NODE_ENV !== 'production') console.log(`Operation: ${operation} on model: ${model}`);
+        if (process.env.NODE_ENV !== 'production')
+          console.log(`Operation: ${operation} on model: ${model}`);
         return query(args);
       },
       async update({ model, operation, args, query }) {
-        if (process.env.NODE_ENV !== 'production') console.log(`Operation: ${operation} on model: ${model}`);
+        if (process.env.NODE_ENV !== 'production')
+          console.log(`Operation: ${operation} on model: ${model}`);
         return query(args);
       },
       async updateMany({ model, operation, args, query }) {
-        if (process.env.NODE_ENV !== 'production') console.log(`Operation: ${operation} on model: ${model}`);
+        if (process.env.NODE_ENV !== 'production')
+          console.log(`Operation: ${operation} on model: ${model}`);
         return query(args);
       },
     },

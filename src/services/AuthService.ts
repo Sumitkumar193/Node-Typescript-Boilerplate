@@ -19,7 +19,7 @@ class AuthService {
       .replace(/S/g, 'T');
   }
 
-static prehash(password: string): string {
+  static prehash(password: string): string {
     return crypto.createHash('sha256').update(password).digest('base64');
   }
 
@@ -114,7 +114,6 @@ static prehash(password: string): string {
       url,
     };
   }
-
 }
 
 export default AuthService;

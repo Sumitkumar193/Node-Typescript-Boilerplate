@@ -2,8 +2,9 @@ import { Server, Socket as ISocket } from 'socket.io';
 import { Server as IServer } from 'node:http';
 import { Role, User } from '@prisma/client';
 import AppException from '@errors/AppException';
-import TokenService from '@services/TokenService';
+import { getUserFromToken } from '@services/TokenService';
 import prisma from '@database/Prisma';
+import SocketAuthService from '@services/SocketAuthService';
 import validateOrigin from '@services/CorsService';
 import { UserWithRoles } from '@interfaces/AppCommonInterface';
 
@@ -65,7 +66,7 @@ class Socket {
           socket.handshake.headers.cookie?.split('accessToken=')[1];
         if (!token) return null;
 
-        const user = await TokenService.getUserFromToken(token);
+        const user = await getUserFromToken(token);
         if (user) {
           this.addUserToRoom(user, socket.id);
           currentUser = user;
@@ -76,7 +77,7 @@ class Socket {
       };
 
       // Require authentication before any conference actions
-      const requireAuth = async (cb: () => void) => {
+      const requireAuth = async (cb: () => void | Promise<void>) => {
         if (!authenticated) {
           await handleAuth();
         }
@@ -103,16 +104,39 @@ class Socket {
       );
 
       // Invite a user to a started room
-      socket.on('invite-user', ({ roomId, userId }) => {
-        requireAuth(() => {
+      socket.on('invite-user', async ({ roomId, userId }) => {
+        await requireAuth(async () => {
+          const targetId = parseInt(userId, 10);
+          if (!Number.isInteger(targetId) || targetId <= 0) return;
           if (!Socket.startedRooms.has(roomId)) return;
           const members = Socket.roomMembers.get(roomId);
           if (!members || !members.has(currentUser!.id)) return;
-          if (!Socket.roomMembers.has(roomId))
-            Socket.roomMembers.set(roomId, new Set());
-          Socket.roomMembers.get(roomId)?.add(userId);
-          // Optionally notify the invited user
-          this.io.to(userId.toString()).emit('invited-to-room', { roomId });
+          const targetExists = await prisma.user.findUnique({
+            where: { id: targetId, disabled: false },
+            select: { id: true },
+          });
+          if (!targetExists) return;
+          members.add(targetId);
+          // For HMAC group rooms: authorize the invitee to request a join token via HTTP.
+          if (roomId.startsWith('group-'))
+            SocketAuthService.authorizeGroupMember(roomId, targetId);
+          this.io.to(targetId.toString()).emit('invited-to-room', { roomId });
+        });
+      });
+
+      // Join a private (1-to-1 or group) room using a server-issued HMAC token.
+      socket.on('join-private-room', async ({ roomId, token }) => {
+        await requireAuth(async () => {
+          if (typeof roomId !== 'string' || typeof token !== 'string') return;
+          if (!SocketAuthService.verifyToken(currentUser!.id, roomId, token)) {
+            socket.emit('join-room-denied', {
+              roomId,
+              reason: 'Invalid token',
+            });
+            return;
+          }
+          socket.join(roomId);
+          socket.to(roomId).emit('user-joined', { socketId: socket.id });
         });
       });
 
