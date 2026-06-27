@@ -10,7 +10,7 @@ Production-ready Node.js + TypeScript REST API boilerplate with JWT refresh-toke
 - **WebSockets** — switchable between Socket.io and uWebSockets.js via `SOCKET_DRIVER` env var; HMAC-secured private rooms for 1-to-1 and group sessions
 - **Prisma 7** — PostgreSQL via `@prisma/adapter-pg` (driver-adapters engine)
 - **Redis** — access-token blacklist, session cache
-- **BullMQ** — background job queue backed by Redis
+- **BullMQ** — background job queue backed by Redis; AES-256-GCM encrypted payloads, DB-logged job history, admin REST API, and CLI replay tool
 - **Mail** — SendGrid or SMTP via nodemailer
 - **Sentry** — optional error tracking with PII scrubbing
 - **Docker** — multi-stage Dockerfile, `docker-compose.yml` for Postgres + Redis + app + Prisma Studio
@@ -47,6 +47,8 @@ cp .env.example .env
 | `SOCKET_DRIVER` | `uWebSocket` or `SocketIO` |
 | `SOCKET_PORT` | uWebSockets.js listen port (only used when driver is `uWebSocket`) |
 | `JWT_SECRET` | **Required.** Secret for signing access tokens |
+| `JOB_ENCRYPTION_KEY` | **Required.** 64-char hex key for AES-256-GCM job payload encryption. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `BULLMQ_DB_LOGGING` | Log job lifecycle events to Postgres (default `false`) |
 | `SOCKET_SECRET` | Secret for HMAC room tokens (falls back to `JWT_SECRET` if not set) |
 | `SESSION_SECRET` | Cookie/session secret |
 | `FRONTEND_URL` | Allowed CORS origin |
@@ -134,6 +136,27 @@ All routes are prefixed with `/api`.
 | `GET` | `/` | Bearer + Admin | Paginated user list |
 | `GET` | `/:id` | Bearer | Get user by ID |
 | `POST` | `/:id/disable` | Bearer + Admin + CSRF | Disable a user account |
+
+### Admin Jobs — `/api/admin/jobs`
+
+Requires Bearer token + Admin role.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | List all registered queues |
+| `GET` | `/:name/status` | Queue depth and counts |
+| `GET` | `/:queueName/jobs` | Paginated job list for a queue |
+| `GET` | `/logs` | Paginated job log history (DB) |
+| `POST` | `/:queueName/:jobId/retry` | Retry a failed job |
+| `POST` | `/logs/:jobLogId/replay` | Re-enqueue a job from its DB log |
+
+**CLI replay** (bypasses HTTP, requires `JOB_ENCRYPTION_KEY` in env):
+
+```sh
+npm run replay-job <jobLogId>
+```
+
+---
 
 ### Socket Auth — `/api/socket`
 
@@ -258,7 +281,8 @@ tests/
 │   ├── AuthRoutes.test.ts  # Integration: auth endpoints against real DB
 │   └── UserRoutes.test.ts  # Integration: user endpoints against real DB
 └── services/
-    └── RefreshToken.test.ts  # Unit: token rotation logic with mocked Prisma
+    ├── RefreshToken.test.ts        # Unit: token rotation logic with mocked Prisma
+    └── JobPayloadEncryption.test.ts # Unit: AES-256-GCM job payload encrypt/decrypt
 ```
 
 ---
@@ -271,6 +295,9 @@ tests/
 │   ├── controllers/              # Request handlers
 │   ├── routes/                   # Express routers
 │   ├── middlewares/              # Auth, CSRF, rate limiting, RBAC, pagination
+│   ├── cli/
+│   │   └── replayJob.ts          # CLI: re-enqueue a job by DB log ID
+│   ├── jobs/                     # BullMQ job definitions
 │   ├── services/
 │   │   ├── AuthService.ts        # Registration, login, password reset
 │   │   ├── RefreshTokenService.ts # Token rotation, session management
@@ -280,7 +307,7 @@ tests/
 │   │   ├── uSocket.ts            # uWebSockets.js implementation
 │   │   ├── RedisService.ts       # Redis client singleton
 │   │   ├── MailService.ts        # Email sending (SendGrid / SMTP)
-│   │   └── BullMQService.ts      # Background job queue
+│   │   └── BullMQService.ts      # Background job queue (AES-256-GCM encrypted payloads)
 │   ├── database/
 │   │   ├── Prisma.ts             # Prisma client with pg adapter + extensions
 │   │   └── Extensions/           # Custom Prisma model methods

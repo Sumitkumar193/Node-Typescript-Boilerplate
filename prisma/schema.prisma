@@ -121,3 +121,26 @@ model RefreshToken {
   @@index([userId])
   @@index([familyId])
 }
+
+model JobLog {
+  id          Int      @id @default(autoincrement())
+  queue       String
+  jobId       String?
+  name        String?
+  status      String   // pending, processing, completed, failed
+  payload     Json?
+  result      Json?
+  attempts    Int      @default(0)
+  maxAttempts Int?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  failedAt    DateTime?
+  failedReason String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([queue])
+  @@index([status])
+  @@index([createdAt])
+  @@unique([queue, jobId])
+}

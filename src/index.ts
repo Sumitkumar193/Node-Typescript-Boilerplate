@@ -18,12 +18,17 @@ import validateOrigin from '@services/CorsService';
 import UserRoutes from '@routes/UserRoutes';
 import AuthRoutes from '@routes/AuthRoutes';
 import SocketRoutes from '@routes/SocketRoutes';
+import AdminJobRoutes from '@routes/AdminJobRoutes';
 import SocketUWS from './services/uSocket';
 
 dotenv.config();
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET env var is required');
+}
+
+if (!process.env.JOB_ENCRYPTION_KEY) {
+  throw new Error('JOB_ENCRYPTION_KEY env var is required — generate one with: openssl rand -hex 32');
 }
 
 RedisService.init();
@@ -112,6 +117,7 @@ app.get('/api/keep-alive', (req, res) =>
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
 app.use('/api/socket', SocketRoutes);
+app.use('/api/admin', AdminJobRoutes);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const fallback: ErrorRequestHandler = (err, req, res, _next) => {

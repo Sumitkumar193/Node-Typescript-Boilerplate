@@ -1,7 +1,7 @@
 import ejs from 'ejs';
 import Mailer from 'nodemailer';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
-import { Job, Queue } from 'bullmq';
+import { Job } from 'bullmq';
 import { MailJobData } from '@interfaces/AppCommonInterface';
 import BullMQService from '@services/BullMQService';
 import AppException from '@errors/AppException';
@@ -16,8 +16,6 @@ const WORKER_CONCURRENCY = parseInt(
 
 export default class MailService {
   private static instance: Mailer.Transporter;
-
-  private static queue: Queue | null = null;
 
   static init() {
     if (!MailService.instance) {
@@ -48,17 +46,13 @@ export default class MailService {
       });
 
       MailService.instance = transporter;
-      MailService.queue = BullMQService.setupQueue(
+      BullMQService.setupQueue(
         QUEUE_NAME,
         async (job: Job<MailJobData>) => {
           await MailService._sendNow(job.data);
           return { success: true, duration: Date.now() - job.timestamp };
         },
-        {
-          workerOptions: {
-            concurrency: WORKER_CONCURRENCY,
-          },
-        },
+        { workerOptions: { concurrency: WORKER_CONCURRENCY } },
       );
     }
 
@@ -83,7 +77,6 @@ export default class MailService {
 
   static async send(data: MailJobData): Promise<void> {
     try {
-      const { queue } = MailService;
       let { html } = data;
 
       if (data.template) {
@@ -93,8 +86,9 @@ export default class MailService {
         });
       }
 
-      if (queue) {
-        await queue.add(
+      if (BullMQService.getQueue(QUEUE_NAME)) {
+        await BullMQService.addJobToQueue(
+          QUEUE_NAME,
           'send',
           { ...data, html },
           {
@@ -113,7 +107,7 @@ export default class MailService {
 
   static async getQueueStatus() {
     try {
-      const { queue } = MailService;
+      const queue = BullMQService.getQueue(QUEUE_NAME);
 
       if (!queue) {
         throw new AppException('Queue not available', 503);
