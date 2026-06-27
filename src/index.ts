@@ -28,7 +28,9 @@ if (!process.env.JWT_SECRET) {
 }
 
 if (!process.env.JOB_ENCRYPTION_KEY) {
-  throw new Error('JOB_ENCRYPTION_KEY env var is required — generate one with: openssl rand -hex 32');
+  throw new Error(
+    'JOB_ENCRYPTION_KEY env var is required — generate one with: openssl rand -hex 32',
+  );
 }
 
 RedisService.init();

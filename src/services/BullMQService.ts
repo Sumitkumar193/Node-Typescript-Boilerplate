@@ -20,16 +20,27 @@ export function encryptJobPayload(data: unknown): unknown {
   if (!key) throw new Error('JOB_ENCRYPTION_KEY env var is required');
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', Buffer.from(key, 'hex'), iv);
-  const enc = Buffer.concat([cipher.update(JSON.stringify(data), 'utf8'), cipher.final()]);
-  return ENC_PREFIX + Buffer.concat([iv, cipher.getAuthTag(), enc]).toString('base64');
+  const enc = Buffer.concat([
+    cipher.update(JSON.stringify(data), 'utf8'),
+    cipher.final(),
+  ]);
+  return (
+    ENC_PREFIX +
+    Buffer.concat([iv, cipher.getAuthTag(), enc]).toString('base64')
+  );
 }
 
 export function decryptJobPayload(data: unknown): unknown {
   const key = process.env.JOB_ENCRYPTION_KEY;
-  if (!key || typeof data !== 'string' || !data.startsWith(ENC_PREFIX)) return data;
+  if (!key || typeof data !== 'string' || !data.startsWith(ENC_PREFIX))
+    return data;
   // prefix present → this is our encrypted format; let auth errors propagate
   const buf = Buffer.from(data.slice(ENC_PREFIX.length), 'base64');
-  const decipher = createDecipheriv('aes-256-gcm', Buffer.from(key, 'hex'), buf.subarray(0, 12));
+  const decipher = createDecipheriv(
+    'aes-256-gcm',
+    Buffer.from(key, 'hex'),
+    buf.subarray(0, 12),
+  );
   decipher.setAuthTag(buf.subarray(12, 28));
   return JSON.parse(decipher.update(buf.subarray(28)) + decipher.final('utf8'));
 }
@@ -145,7 +156,7 @@ class BullMQService {
         const startedAt = new Date();
         // Capture encrypted form for DB logging, then decrypt in-place for the processor
         const encryptedPayload = job.data as unknown;
-        (job as any).data = decryptJobPayload(encryptedPayload);
+        Reflect.set(job, 'data', decryptJobPayload(encryptedPayload));
 
         await BullMQService.logJobToDatabase({
           queue: name,
