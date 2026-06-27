@@ -75,7 +75,9 @@ export class TransactionContext {
       const originalMethod = descriptor.value;
       const newDescriptor = { ...descriptor };
 
-      newDescriptor.value = async function transactionalMethod(...args: unknown[]) {
+      newDescriptor.value = async function transactionalMethod(
+        ...args: unknown[]
+      ) {
         const existingStore = TransactionContext.storage.getStore();
 
         // ===== PROPAGATION RULES =====

@@ -61,10 +61,8 @@ export async function createUser(
     await prisma.user.assignRole(user.id, 'User');
     await prisma.user.generateVerificationToken(user);
 
-    const { accessToken, refreshToken: newRefreshToken } = await RefreshTokenService.login(
-      user.id,
-      extractMeta(req),
-    );
+    const { accessToken, refreshToken: newRefreshToken } =
+      await RefreshTokenService.login(user.id, extractMeta(req));
 
     return res.status(201).json({
       success: true,
@@ -224,10 +222,8 @@ export async function loginUser(
       throw new ApiException('Invalid email or password', 401);
     }
 
-    const { accessToken, refreshToken: newRefreshToken } = await RefreshTokenService.login(
-      user.id,
-      extractMeta(req),
-    );
+    const { accessToken, refreshToken: newRefreshToken } =
+      await RefreshTokenService.login(user.id, extractMeta(req));
 
     return res.status(200).json({
       success: true,

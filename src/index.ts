@@ -65,7 +65,9 @@ if (dsn && dsn.length > 0) {
         // don't forward query params or user object — may contain tokens/PII
         delete data.query;
       }
-      const safeExtra = { ...(event.extra as Record<string, unknown> | undefined) };
+      const safeExtra = {
+        ...(event.extra as Record<string, unknown> | undefined),
+      };
       delete safeExtra.user;
       return { ...event, extra: safeExtra };
     },
