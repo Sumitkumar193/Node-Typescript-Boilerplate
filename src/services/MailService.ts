@@ -62,6 +62,10 @@ export default class MailService {
   static async _sendNow(data: MailJobData): Promise<void> {
     if (!MailService.instance) MailService.init();
 
+    if (!MailService.instance) {
+      throw new AppException('Mail service not configured', 503);
+    }
+
     const mailOptions: MailJobData = {
       ...data,
       from: process.env.MAIL_FROM,
@@ -100,8 +104,9 @@ export default class MailService {
         await MailService._sendNow({ ...data, html });
       }
     } catch (error) {
+      // Fail silently: mail is best-effort. When queued, the worker retries and
+      // logs failures; a failed email must not break the caller's request.
       console.error('Error sending email:', error);
-      throw new AppException('Failed to send email', 500);
     }
   }
 

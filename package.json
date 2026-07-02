@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn -r tsconfig-paths/register src/index.ts",
+    "dev": "ts-node-dev --respawn -r dotenv/config -r tsconfig-paths/register src/index.ts",
     "build": "rimraf dist && mkdirp dist && tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
-    "start": "node -r tsconfig-paths/register dist/index.js",
+    "start": "node -r dotenv/config -r tsconfig-paths/register dist/index.js",
     "lint": "prettier --write \"src/**/*.{ts,tsx}\" && eslint \"src/**/*.{ts,tsx}\"",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -15,7 +15,7 @@
     "replay-job": "ts-node -r tsconfig-paths/register src/cli/replayJob.ts"
   },
   "prisma": {
-    "seed": "ts-node dist/database/seed.ts"
+    "seed": "ts-node -r dotenv/config -r tsconfig-paths/register prisma/seed.ts"
   },
   "overrides": {
     "@prisma/dev": "^0.24.10"
