@@ -6,7 +6,7 @@ Production-ready Node.js + TypeScript REST API boilerplate with JWT refresh-toke
 
 - **TypeScript** — strict mode, path aliases, compiled to `dist/`
 - **Express** — REST API with global rate limiting, CORS, Helmet, CSRF protection
-- **Authentication** — JWT access tokens + refresh-token rotation with reuse detection and per-session revocation
+- **Authentication** — JWT access tokens + refresh-token rotation with reuse detection and per-session revocation; passwords hashed with `bcrypt` (max 72 bytes, enforced at validation)
 - **WebSockets** — switchable between Socket.io and uWebSockets.js via `SOCKET_DRIVER` env var; HMAC-secured private rooms for 1-to-1 and group sessions
 - **Prisma 7** — PostgreSQL via `@prisma/adapter-pg` (driver-adapters engine)
 - **Redis** — access-token blacklist, session cache

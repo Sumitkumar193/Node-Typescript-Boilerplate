@@ -19,10 +19,6 @@ class AuthService {
       .replace(/S/g, 'T');
   }
 
-  static prehash(password: string): string {
-    return crypto.createHash('sha256').update(password).digest('base64');
-  }
-
   static async generateCode(length: number) {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     const randomBytes = crypto.randomBytes(16).toString('hex');

@@ -48,7 +48,7 @@ export async function createUser(
       throw new ApiException('User already exists', 400);
     }
 
-    const hashedPassword = await bcrypt.hash(AuthService.prehash(password), 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user: User = await prisma.user.create({
       data: {
@@ -213,10 +213,7 @@ export async function loginUser(
       );
     }
 
-    const verifyPassword = await bcrypt.compare(
-      AuthService.prehash(password),
-      user.password,
-    );
+    const verifyPassword = await bcrypt.compare(password, user.password);
 
     if (!verifyPassword) {
       throw new ApiException('Invalid email or password', 401);
@@ -401,7 +398,7 @@ export async function resetPassword(
       throw new ApiException('Validation error', 422, errors);
     }
 
-    const hashedPassword = await bcrypt.hash(AuthService.prehash(password), 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     await prisma.user.update({
       where: { id: passwordReset.userId },
