@@ -87,7 +87,11 @@ export default async function Authenticate(
       throw new ApiException(UNAUTHORIZED, 401);
     }
 
-    if (!user.isVerified && !req.originalUrl.includes('/auth/verify')) {
+    if (
+      process.env.REQUIRE_EMAIL_VERIFICATION as string === 'true' &&
+      !user.isVerified &&
+      !req.originalUrl.includes('/auth/verify')
+    ) {
       throw new ApiException(
         'User account is not verified. Please verify your email.',
         403,

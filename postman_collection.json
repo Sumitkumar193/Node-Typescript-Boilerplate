@@ -1,0 +1,355 @@
+{
+  "info": {
+    "name": "Node-Typescript-Boilerplate API",
+    "description": "# Node-Typescript-Boilerplate API\n\nImportable collection for all `/api` routes.\n\n## Getting started\n\n1. Set the `baseUrl` collection variable (default `http://localhost:8080`).\n2. Run **Auth → Login** once. Its test script auto-saves `{{accessToken}}` and `{{refreshToken}}`.\n3. Every other request inherits **Bearer** auth from the collection — no manual token copying.\n\n## Auth & CSRF\n\nBearer requests skip CSRF, so no extra setup is needed. To exercise the cookie-auth flow instead, call **Health → Get CSRF token** and send the returned value in an `x-xsrf-token` header on state-changing requests.\n\n## Variables\n\n| Variable | Purpose |\n|----------|---------|\n| `baseUrl` | API host, e.g. `http://localhost:8080` |\n| `accessToken` | Bearer token, auto-set by Login/Refresh |\n| `refreshToken` | Refresh token, auto-set by Login/Refresh |\n\nPath params (`:id`, `:jti`, `:queueName`, …) and request bodies are pre-filled with example values — edit per request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-attach the CSRF token to every state-changing request (except the CSRF-exempt refresh route).",
+          "const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(pm.request.method);",
+          "const exempt = pm.request.url.getPath() === '/api/auth/refresh';",
+          "if (mutating && !exempt) {",
+          "  pm.request.headers.upsert({ key: 'x-xsrf-token', value: pm.collectionVariables.get('csrfToken') || '' });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5555", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "csrfToken", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "Unauthenticated utility endpoints for liveness checks and CSRF token retrieval.",
+      "item": [
+        {
+          "name": "Keep alive",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{baseUrl}}/api/keep-alive",
+            "description": "Liveness probe. Returns `{ success: true, message: 'Keep alive' }`."
+          }
+        },
+        {
+          "name": "Get CSRF token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data || {};",
+                  "if (d.token) pm.collectionVariables.set('csrfToken', d.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{baseUrl}}/api/csrf-token",
+            "description": "Issues a CSRF token (also set as the `XSRF-TOKEN` cookie). The test script saves it to the `csrfToken` collection variable, and the collection pre-request script auto-attaches it as the `x-xsrf-token` header on every state-changing request. Run this once before sending any POST/PUT/DELETE. (Harmless under pure Bearer auth, where CSRF is skipped server-side.)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Registration, login, token refresh, email verification, password reset, session management, and logout. `/api/auth`.",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data || {};",
+                  "if (d.accessToken) pm.collectionVariables.set('accessToken', d.accessToken);",
+                  "if (d.refreshToken) pm.collectionVariables.set('refreshToken', d.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"password\": \"Password123!\",\n  \"confirmPassword\": \"Password123!\"\n}" },
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Create a new user account. Body: `name`, `email`, `password`, `confirmPassword` (must equal `password`). Public."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data || {};",
+                  "if (d.accessToken) pm.collectionVariables.set('accessToken', d.accessToken);",
+                  "if (d.refreshToken) pm.collectionVariables.set('refreshToken', d.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jane@example.com\",\n  \"password\": \"Password123!\"\n}" },
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Authenticate with `email` + `password`. Returns `accessToken` and `refreshToken` in the body (and sets auth cookies). The test script saves both tokens to collection variables. Rate-limited."
+          }
+        },
+        {
+          "name": "Refresh token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data || {};",
+                  "if (d.accessToken) pm.collectionVariables.set('accessToken', d.accessToken);",
+                  "if (d.refreshToken) pm.collectionVariables.set('refreshToken', d.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "url": "{{baseUrl}}/api/auth/refresh",
+            "description": "Rotate the refresh token and issue a fresh access token. Body: `refreshToken`. CSRF-exempt. The test script updates both saved tokens. Rate-limited."
+          }
+        },
+        {
+          "name": "Get profile (me)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/me",
+            "description": "Return the authenticated user's profile. Requires auth."
+          }
+        },
+        {
+          "name": "Get verify email",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/auth/verify/:id", "host": ["{{baseUrl}}"], "path": ["api", "auth", "verify", ":id"], "variable": [{ "key": "id", "value": "1" }] },
+            "description": "Fetch the email-verification challenge for user `:id`. Requires auth."
+          }
+        },
+        {
+          "name": "Verify email",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"123456\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/verify/:id", "host": ["{{baseUrl}}"], "path": ["api", "auth", "verify", ":id"], "variable": [{ "key": "id", "value": "1" }] },
+            "description": "Confirm email ownership for user `:id`. Body: `code`. Requires auth."
+          }
+        },
+        {
+          "name": "Regenerate verification token",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/auth/verify/regenerate",
+            "description": "Re-send / regenerate the email verification code for the current user. Requires auth."
+          }
+        },
+        {
+          "name": "Forgot password (request)",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jane@example.com\"\n}" },
+            "url": "{{baseUrl}}/api/auth/forgot-password",
+            "description": "Start a password reset by emailing a reset link. Body: `email`. Public."
+          }
+        },
+        {
+          "name": "Forgot password (get reset page)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/auth/forgot-password/:id", "host": ["{{baseUrl}}"], "path": ["api", "auth", "forgot-password", ":id"], "variable": [{ "key": "id", "value": "1" }] },
+            "description": "Retrieve the reset context for user `:id` (link target). Public."
+          }
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"reset-token-here\",\n  \"password\": \"NewPassword123!\",\n  \"confirmPassword\": \"NewPassword123!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/forgot-password/:id", "host": ["{{baseUrl}}"], "path": ["api", "auth", "forgot-password", ":id"], "variable": [{ "key": "id", "value": "1" }] },
+            "description": "Complete the reset for user `:id`. Body: `token`, `password`, `confirmPassword`. Public."
+          }
+        },
+        {
+          "name": "Get sessions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/sessions",
+            "description": "List the current user's active sessions (each identified by a `jti`). Requires auth."
+          }
+        },
+        {
+          "name": "Revoke session",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/api/auth/sessions/:jti", "host": ["{{baseUrl}}"], "path": ["api", "auth", "sessions", ":jti"], "variable": [{ "key": "jti", "value": "session-jti-here" }] },
+            "description": "Revoke a single session by its `:jti`. Requires auth."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/logout",
+            "description": "Invalidate the current session/tokens. Requires auth."
+          }
+        },
+        {
+          "name": "Logout all devices",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/logout/all",
+            "description": "Revoke every session for the current user. Requires auth."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User directory and administration. `/api/users`.",
+      "item": [
+        {
+          "name": "List users (admin)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/users?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["api", "users"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] },
+            "description": "Paginated list of users. Query: `page`, `limit`. Requires auth + Admin role."
+          }
+        },
+        {
+          "name": "Get user",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/users/:id", "host": ["{{baseUrl}}"], "path": ["api", "users", ":id"], "variable": [{ "key": "id", "value": "1" }] },
+            "description": "Fetch a single user by `:id`. Requires auth."
+          }
+        },
+        {
+          "name": "Disable user (admin)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/users/:id/disable", "host": ["{{baseUrl}}"], "path": ["api", "users", ":id", "disable"], "variable": [{ "key": "id", "value": "1" }] },
+            "description": "Disable the account with `:id`. Requires auth + Admin role."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Socket",
+      "description": "Issues short-lived tokens authorizing access to Socket.IO rooms. `/api/socket`.",
+      "item": [
+        {
+          "name": "Auth private room",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"targetUserId\": 2\n}" },
+            "url": "{{baseUrl}}/api/socket/auth/private",
+            "description": "Get a room id + token for a 1:1 room with `targetUserId`. Requires auth."
+          }
+        },
+        {
+          "name": "Create group room",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/socket/auth/group/create",
+            "description": "Create a new group room and receive the creator's token. Requires auth."
+          }
+        },
+        {
+          "name": "Join group room",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"roomId\": \"group-xxxx\"\n}" },
+            "url": "{{baseUrl}}/api/socket/auth/group/join",
+            "description": "Get a join token for a group `roomId` (must start with `group-`). Only works if the user was previously authorized via the invite-user socket event. Requires auth."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Jobs",
+      "description": "BullMQ job log inspection, replay/retry, and queue status. `/api/admin/jobs`. All endpoints require auth + Admin role.",
+      "item": [
+        {
+          "name": "Get job logs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/jobs/logs",
+            "description": "List recorded job logs. Requires Admin."
+          }
+        },
+        {
+          "name": "Get job log by id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/admin/jobs/logs/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "jobs", "logs", ":id"], "variable": [{ "key": "id", "value": "1" }] },
+            "description": "Fetch a single job log by `:id`. Requires Admin."
+          }
+        },
+        {
+          "name": "Replay job",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/admin/jobs/logs/:id/replay", "host": ["{{baseUrl}}"], "path": ["api", "admin", "jobs", "logs", ":id", "replay"], "variable": [{ "key": "id", "value": "1" }] },
+            "description": "Re-enqueue the job recorded in log `:id`. Requires Admin."
+          }
+        },
+        {
+          "name": "Retry job",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/admin/jobs/:queueName/:jobId/retry", "host": ["{{baseUrl}}"], "path": ["api", "admin", "jobs", ":queueName", ":jobId", "retry"], "variable": [{ "key": "queueName", "value": "default" }, { "key": "jobId", "value": "1" }] },
+            "description": "Retry a failed job `:jobId` in queue `:queueName`. Requires Admin."
+          }
+        },
+        {
+          "name": "Get queue status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/admin/jobs/queues/:name/status", "host": ["{{baseUrl}}"], "path": ["api", "admin", "jobs", "queues", ":name", "status"], "variable": [{ "key": "name", "value": "default" }] },
+            "description": "Counts (waiting/active/completed/failed/…) for queue `:name`. Requires Admin."
+          }
+        }
+      ]
+    }
+  ]
+}
