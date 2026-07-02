@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import Authenticate from '@middlewares/Authenticate';
+import { VerifyCsrf } from '@middlewares/Csrf';
 import {
   authPrivate,
   createGroupRoom,
@@ -8,8 +9,13 @@ import {
 
 const SocketRoutes = Router();
 
-SocketRoutes.post('/auth/private', Authenticate, authPrivate);
-SocketRoutes.post('/auth/group/create', Authenticate, createGroupRoom);
-SocketRoutes.post('/auth/group/join', Authenticate, joinGroupRoom);
+SocketRoutes.post('/auth/private', Authenticate, VerifyCsrf, authPrivate);
+SocketRoutes.post(
+  '/auth/group/create',
+  Authenticate,
+  VerifyCsrf,
+  createGroupRoom,
+);
+SocketRoutes.post('/auth/group/join', Authenticate, VerifyCsrf, joinGroupRoom);
 
 export default SocketRoutes;

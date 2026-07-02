@@ -2,6 +2,7 @@ import { Router } from 'express';
 import AdminJobController from '@controllers/AdminJobController';
 import Authenticate from '@middlewares/Authenticate';
 import HasRole from '@middlewares/HasRole';
+import { VerifyCsrf } from '@middlewares/Csrf';
 
 const router = Router();
 
@@ -13,8 +14,12 @@ router.use(HasRole('Admin'));
 const jobLogRoutes = Router();
 jobLogRoutes.get('/logs', AdminJobController.getJobLogs);
 jobLogRoutes.get('/logs/:id', AdminJobController.getJobLogById);
-jobLogRoutes.post('/logs/:id/replay', AdminJobController.replayJob);
-jobLogRoutes.post('/:queueName/:jobId/retry', AdminJobController.retryJob);
+jobLogRoutes.post('/logs/:id/replay', VerifyCsrf, AdminJobController.replayJob);
+jobLogRoutes.post(
+  '/:queueName/:jobId/retry',
+  VerifyCsrf,
+  AdminJobController.retryJob,
+);
 jobLogRoutes.get('/queues/:name/status', AdminJobController.getQueueStatus);
 
 // Mount the job log routes under /admin
