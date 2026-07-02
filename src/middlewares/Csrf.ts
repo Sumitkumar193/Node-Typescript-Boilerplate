@@ -30,8 +30,25 @@ export function AttachCsrf(req: Request, res: Response): void {
   });
 }
 
+// Safe methods never mutate state; endpoints in EXEMPT manage their own token
+// lifecycle (refresh runs before a client may hold a CSRF token).
+const CSRF_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const CSRF_EXEMPT_PATHS = new Set(['/api/auth/refresh']);
+
+// Global guard: runs on every request. Bearer requests can't be forged
+// cross-site (browsers don't auto-attach Authorization), so only cookie-auth
+// requests are gated. Mirrors Authenticate's precedence: an accessToken cookie
+// means cookie auth even if an Authorization header is also present.
 export function VerifyCsrf(req: Request, res: Response, next: NextFunction) {
-  if (res.locals.authMethod === 'bearer') {
+  const isBearer =
+    !req.cookies?.accessToken &&
+    !!req.headers.authorization?.startsWith('Bearer ');
+
+  if (
+    isBearer ||
+    CSRF_SAFE_METHODS.has(req.method) ||
+    CSRF_EXEMPT_PATHS.has(req.path)
+  ) {
     return next();
   }
 

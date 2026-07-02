@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import Authenticate from '@middlewares/Authenticate';
-import { AttachCsrf, VerifyCsrf } from '@middlewares/Csrf';
 import {
   loginUser,
   createUser,
@@ -22,36 +21,24 @@ import RefreshRateLimiter from '@middlewares/RefreshRateLimiter';
 
 const AuthRoutes = Router();
 
-AuthRoutes.get('/csrf-token', AttachCsrf);
-
-AuthRoutes.post('/login', LoginRateLimiter, VerifyCsrf, loginUser);
-AuthRoutes.post('/register', VerifyCsrf, createUser);
+AuthRoutes.post('/login', LoginRateLimiter, loginUser);
+AuthRoutes.post('/register', createUser);
 AuthRoutes.post('/refresh', RefreshRateLimiter, refreshToken);
 
 AuthRoutes.get('/verify/:id', Authenticate, getVerifyEmail);
-AuthRoutes.post('/verify/:id', Authenticate, VerifyCsrf, verifyEmail);
-AuthRoutes.put(
-  '/verify/regenerate',
-  Authenticate,
-  VerifyCsrf,
-  regenerateVerificationToken,
-);
+AuthRoutes.post('/verify/:id', Authenticate, verifyEmail);
+AuthRoutes.put('/verify/regenerate', Authenticate, regenerateVerificationToken);
 
-AuthRoutes.post('/forgot-password', VerifyCsrf, forgotPassword);
+AuthRoutes.post('/forgot-password', forgotPassword);
 AuthRoutes.get('/forgot-password/:id', getResetPasswordEmail);
-AuthRoutes.post('/forgot-password/:id', VerifyCsrf, resetPassword);
+AuthRoutes.post('/forgot-password/:id', resetPassword);
 
 AuthRoutes.get('/me', Authenticate, getProfile);
 
-AuthRoutes.post('/logout', Authenticate, VerifyCsrf, logoutUser);
-AuthRoutes.post('/logout/all', Authenticate, VerifyCsrf, logoutFromAllDevices);
+AuthRoutes.post('/logout', Authenticate, logoutUser);
+AuthRoutes.post('/logout/all', Authenticate, logoutFromAllDevices);
 
 AuthRoutes.get('/sessions', Authenticate, getSessions);
-AuthRoutes.delete(
-  '/sessions/:jti',
-  Authenticate,
-  VerifyCsrf,
-  revokeSessionHandler,
-);
+AuthRoutes.delete('/sessions/:jti', Authenticate, revokeSessionHandler);
 
 export default AuthRoutes;

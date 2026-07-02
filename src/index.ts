@@ -15,6 +15,7 @@ import MailService from '@services/MailService';
 import BullMQService from '@services/BullMQService';
 import RefreshTokenService from '@services/RefreshTokenService';
 import validateOrigin from '@services/CorsService';
+import { AttachCsrf, VerifyCsrf } from '@middlewares/Csrf';
 import UserRoutes from '@routes/UserRoutes';
 import AuthRoutes from '@routes/AuthRoutes';
 import SocketRoutes from '@routes/SocketRoutes';
@@ -113,9 +114,14 @@ const limit = RateLimit({
 
 app.use('/api/', limit);
 
+// CSRF applied globally: gates all state-changing cookie-auth requests.
+// VerifyCsrf skips safe methods, bearer auth, and exempt paths internally.
+app.use(VerifyCsrf);
+
 app.get('/api/keep-alive', (req, res) =>
   res.status(200).json({ success: true, message: 'Keep alive' }),
 );
+app.get('/api/csrf-token', AttachCsrf);
 app.use('/api/users', UserRoutes);
 app.use('/api/auth', AuthRoutes);
 app.use('/api/socket', SocketRoutes);

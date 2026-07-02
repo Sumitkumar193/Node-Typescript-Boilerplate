@@ -109,11 +109,16 @@ The `docker-compose.yml` runs the app with 2 replicas behind a rolling-update po
 
 All routes are prefixed with `/api`.
 
+**CSRF:** applied globally. Every state-changing request (`POST`/`PUT`/`PATCH`/`DELETE`) authenticated by cookie must send the double-submit token in the `x-xsrf-token` header. Bearer-authenticated and safe (`GET`/`HEAD`/`OPTIONS`) requests are exempt, as is `POST /api/auth/refresh`. Fetch a token from `GET /api/csrf-token` first. The `CSRF` tag below marks routes that require it when using cookie auth.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/csrf-token` | — | Issue CSRF token cookie |
+
 ### Auth — `/api/auth`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/csrf-token` | — | Issue CSRF token cookie |
 | `POST` | `/register` | CSRF | Register new user, returns token pair |
 | `POST` | `/login` | CSRF | Login, returns token pair |
 | `POST` | `/refresh` | — | Rotate refresh token, returns new token pair |
