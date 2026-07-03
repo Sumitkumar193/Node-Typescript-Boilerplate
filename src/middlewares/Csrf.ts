@@ -30,10 +30,10 @@ export function AttachCsrf(req: Request, res: Response): void {
   });
 }
 
-// Safe methods never mutate state; endpoints in EXEMPT manage their own token
-// lifecycle (refresh runs before a client may hold a CSRF token).
+// Safe methods never mutate state. Paths in EXEMPT bypass CSRF entirely (kept
+// for endpoints that manage their own token lifecycle).
 const CSRF_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-const CSRF_EXEMPT_PATHS = new Set(['/api/auth/refresh']);
+const CSRF_EXEMPT_PATHS = new Set<string>([]);
 
 // Global guard: runs on every request. Bearer requests can't be forged
 // cross-site (browsers don't auto-attach Authorization), so only cookie-auth
@@ -44,8 +44,15 @@ export function VerifyCsrf(req: Request, res: Response, next: NextFunction) {
     !req.cookies?.accessToken &&
     !!req.headers.authorization?.startsWith('Bearer ');
 
+  // /refresh authenticates via the refresh token itself. Browser requests carry
+  // Origin and are cross-site forgeable → enforce CSRF; non-browser clients
+  // (mobile/API, no Origin, no cookie to ride) → let it through.
+  const refreshViaBody =
+    req.path === '/api/auth/refresh' && !req.headers.origin;
+
   if (
     isBearer ||
+    refreshViaBody ||
     CSRF_SAFE_METHODS.has(req.method) ||
     CSRF_EXEMPT_PATHS.has(req.path)
   ) {

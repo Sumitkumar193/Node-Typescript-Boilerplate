@@ -83,6 +83,24 @@ describe('Auth Routes (integration)', () => {
       expect(user!.password).not.toBe(BASE.password);
     });
 
+    it('browser clients (Origin present) get an httpOnly cookie, not a body token', async () => {
+      const res = await request(app)
+        .post('/auth/register')
+        .set('x-xsrf-token', 'test')
+        .set('Origin', 'http://localhost:3000')
+        .send({ ...BASE, email: getUniqueEmail(), confirmPassword: BASE.password })
+        .expect(201);
+
+      // Access token still in body; refresh token only in the cookie.
+      expect(res.body.data.accessToken).toBeTruthy();
+      expect(res.body.data.refreshToken).toBeUndefined();
+
+      const setCookie = res.headers['set-cookie'] as unknown as string[];
+      const refreshCookie = setCookie?.find((c) => c.startsWith('refreshToken='));
+      expect(refreshCookie).toBeTruthy();
+      expect(refreshCookie).toMatch(/HttpOnly/i);
+    });
+
     it('returns 400 if email already taken', async () => {
       await reg();
       const res = await reg().expect(400);

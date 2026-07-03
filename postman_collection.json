@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Node-Typescript-Boilerplate API",
-    "description": "# Node-Typescript-Boilerplate API\n\nImportable collection for all `/api` routes.\n\n## Getting started\n\n1. Set the `baseUrl` collection variable (default `http://localhost:8080`).\n2. Run **Auth → Login** once. Its test script auto-saves `{{accessToken}}` and `{{refreshToken}}`.\n3. Every other request inherits **Bearer** auth from the collection — no manual token copying.\n\n## Auth & CSRF\n\nBearer requests skip CSRF, so no extra setup is needed. To exercise the cookie-auth flow instead, call **Health → Get CSRF token** and send the returned value in an `x-xsrf-token` header on state-changing requests.\n\n## Variables\n\n| Variable | Purpose |\n|----------|---------|\n| `baseUrl` | API host, e.g. `http://localhost:8080` |\n| `accessToken` | Bearer token, auto-set by Login/Refresh |\n| `refreshToken` | Refresh token, auto-set by Login/Refresh |\n\nPath params (`:id`, `:jti`, `:queueName`, …) and request bodies are pre-filled with example values — edit per request.",
+    "description": "# Node-Typescript-Boilerplate API\n\nImportable collection for all `/api` routes.\n\n## Getting started\n\n1. Set the `baseUrl` collection variable (default `http://localhost:8080`).\n2. Run **Auth → Login** once. Its test script auto-saves `{{accessToken}}` and `{{refreshToken}}`.\n3. Every other request inherits **Bearer** auth from the collection — no manual token copying.\n\n## Auth & CSRF\n\nThis collection runs as a **non-browser client**: Postman sends no `Origin` header, so the API returns `accessToken` and `refreshToken` in the response body, sets no refresh cookie, and treats `/api/auth/refresh` as CSRF-exempt. Requests inherit **Bearer** auth, which also skips CSRF — no extra setup needed.\n\n**Browsers behave differently** (`Origin` is present): the refresh token is delivered only as an `httpOnly` cookie — never in the body — and `/api/auth/refresh` requires CSRF. To simulate that, add an `Origin` header to a request, run **Health → Get CSRF token** once, and the pre-request script attaches `x-xsrf-token` automatically.\n\n## Variables\n\n| Variable | Purpose |\n|----------|---------|\n| `baseUrl` | API host, e.g. `http://localhost:8080` |\n| `accessToken` | Bearer token, auto-set by Login/Refresh |\n| `refreshToken` | Refresh token, auto-set by Login/Refresh |\n\nPath params (`:id`, `:jti`, `:queueName`, …) and request bodies are pre-filled with example values — edit per request.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -14,10 +14,11 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "// Auto-attach the CSRF token to every state-changing request (except the CSRF-exempt refresh route).",
+          "// Attach the CSRF token to every state-changing request. Harmless for Bearer /",
+          "// non-browser (no Origin) calls where the server skips CSRF; required once you",
+          "// send an Origin header (browser mode), including on /api/auth/refresh.",
           "const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(pm.request.method);",
-          "const exempt = pm.request.url.getPath() === '/api/auth/refresh';",
-          "if (mutating && !exempt) {",
+          "if (mutating) {",
           "  pm.request.headers.upsert({ key: 'x-xsrf-token', value: pm.collectionVariables.get('csrfToken') || '' });",
           "}"
         ]
@@ -92,7 +93,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"password\": \"Password123!\",\n  \"confirmPassword\": \"Password123!\"\n}" },
             "url": "{{baseUrl}}/api/auth/register",
-            "description": "Create a new user account. Body: `name`, `email`, `password`, `confirmPassword` (must equal `password`). Public."
+            "description": "Create a new user account. Body: `name`, `email`, `password`, `confirmPassword` (must equal `password`). Token delivery matches **Login** — body for non-browser clients, `httpOnly` refresh cookie for browsers. Public."
           }
         },
         {
@@ -116,7 +117,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"email\": \"jane@example.com\",\n  \"password\": \"Password123!\"\n}" },
             "url": "{{baseUrl}}/api/auth/login",
-            "description": "Authenticate with `email` + `password`. Returns `accessToken` and `refreshToken` in the body (and sets auth cookies). The test script saves both tokens to collection variables. Rate-limited."
+            "description": "Authenticate with `email` + `password`. Non-browser clients (no `Origin`, e.g. Postman) receive `accessToken` and `refreshToken` in the body; browser clients (`Origin` present) receive the refresh token as an `httpOnly` cookie instead of in the body. The test script saves whatever tokens are returned. Rate-limited."
           }
         },
         {
@@ -140,7 +141,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
             "url": "{{baseUrl}}/api/auth/refresh",
-            "description": "Rotate the refresh token and issue a fresh access token. Body: `refreshToken`. CSRF-exempt. The test script updates both saved tokens. Rate-limited."
+            "description": "Rotate the refresh token and issue a fresh access token. Non-browser clients send the token in the body (`refreshToken`) and are CSRF-exempt; browser clients (`Origin` present) send it via the `httpOnly` cookie and must include `x-xsrf-token`. The test script updates saved tokens. Rate-limited."
           }
         },
         {

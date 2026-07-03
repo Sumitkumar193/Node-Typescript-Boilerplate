@@ -11,6 +11,7 @@ import {
 } from '@validations/UserValidation';
 import validate from '@services/ValidationService';
 import RefreshTokenService from '@services/RefreshTokenService';
+import { REFRESH_TOKEN_TTL_DAYS } from '@services/TokenService';
 import MailService from '@services/MailService';
 import {
   AccessTokenPayload,
@@ -26,6 +27,40 @@ function extractMeta(req: Request) {
     ip: req.ip,
     userAgent: (req.headers['user-agent'] ?? '').slice(0, 500),
   };
+}
+
+// Browsers always send Origin on cross/same-origin non-GET requests, and it's a
+// forbidden header — JS (incl. XSS) can't forge or strip it. So its presence is
+// an unspoofable "this is a browser" signal:
+//   - browser  → refresh token goes in an httpOnly cookie, never in the body,
+//                so JS can never read it (XSS can't exfiltrate the long-lived token).
+//   - API/mobile (no Origin) → token returned in the body; no cookie jar to use.
+// CSRF enforcement keys on the cookie's presence (see VerifyCsrf), not on this.
+function wantsCookies(req: Request): boolean {
+  return !!req.headers.origin;
+}
+
+const refreshCookieOptions = {
+  httpOnly: true,
+  sameSite:
+    (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none' | undefined) ??
+    'lax',
+  secure: process.env.NODE_ENV === 'production',
+  maxAge: REFRESH_TOKEN_TTL_DAYS * 86_400_000,
+} as const;
+
+// Sets the refresh cookie for browsers and returns the token only to non-browser
+// clients — callers spread the result into their response `data`.
+function deliverRefreshToken(
+  req: Request,
+  res: Response,
+  refreshToken: string,
+): { refreshToken?: string } {
+  if (wantsCookies(req)) {
+    res.cookie('refreshToken', refreshToken, refreshCookieOptions);
+    return {};
+  }
+  return { refreshToken };
 }
 
 export async function createUser(
@@ -74,7 +109,7 @@ export async function createUser(
           isVerified: user.isVerified,
         },
         accessToken,
-        refreshToken: newRefreshToken,
+        ...deliverRefreshToken(req, res, newRefreshToken),
       },
     });
   } catch (error) {
@@ -232,7 +267,7 @@ export async function loginUser(
           isVerified: user.isVerified,
         },
         accessToken,
-        refreshToken: newRefreshToken,
+        ...deliverRefreshToken(req, res, newRefreshToken),
       },
     });
   } catch (error) {
@@ -246,7 +281,7 @@ export async function refreshToken(
   next: NextFunction,
 ) {
   try {
-    const { refreshToken: raw } = req.body;
+    const raw = req.cookies?.refreshToken ?? req.body?.refreshToken;
 
     if (!raw) {
       throw new ApiException('Refresh token required', 401);
@@ -258,7 +293,7 @@ export async function refreshToken(
     return res.status(200).json({
       success: true,
       message: 'Token refreshed',
-      data: { accessToken, refreshToken: newRaw },
+      data: { accessToken, ...deliverRefreshToken(req, res, newRaw) },
     });
   } catch (error) {
     return next(error);
@@ -433,6 +468,9 @@ export async function logoutUser(
   try {
     const { token } = res.locals as { token: AccessTokenPayload };
     await RefreshTokenService.logout(token.sid, token.exp);
+
+    const { maxAge: _maxAge, ...clearOptions } = refreshCookieOptions;
+    res.clearCookie('refreshToken', clearOptions);
 
     return res.status(200).json({
       success: true,
